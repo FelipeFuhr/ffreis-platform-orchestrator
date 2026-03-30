@@ -35,9 +35,9 @@ func (s *CreateProviderStep) CredentialClass() credential.Class  { return creden
 func (s *CreateProviderStep) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *CreateProviderStep) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
-func (s *CreateProviderStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	iamClient := iam.NewFromConfig(ctx.AWSConfig())
-	listOut, err := iamClient.ListOpenIDConnectProviders(ctx.Context(), &iam.ListOpenIDConnectProvidersInput{})
+func (s *CreateProviderStep) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	listOut, err := iamClient.ListOpenIDConnectProviders(ctx, &iam.ListOpenIDConnectProvidersInput{})
 	if err != nil {
 		return false, nil
 	}
@@ -45,50 +45,50 @@ func (s *CreateProviderStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error
 		if p.Arn == nil {
 			continue
 		}
-		detail, derr := iamClient.GetOpenIDConnectProvider(ctx.Context(), &iam.GetOpenIDConnectProviderInput{
+		detail, derr := iamClient.GetOpenIDConnectProvider(ctx, &iam.GetOpenIDConnectProviderInput{
 			OpenIDConnectProviderArn: p.Arn,
 		})
 		if derr == nil && detail.Url != nil && *detail.Url == githubOIDCURL {
 			// Check if stored.
-			_, storeErr := ctx.Config().Get(ctx.Context(), platformProject, globalEnv, oidcProviderKey)
+			_, storeErr := execCtx.Config().Get(ctx, platformProject, globalEnv, oidcProviderKey)
 			return storeErr == nil, nil
 		}
 	}
 	return false, nil
 }
 
-func (s *CreateProviderStep) Run(ctx *pipeline.ExecutionContext) error {
-	if ctx.DryRun() {
-		ctx.Log().Info("[dry-run] would create OIDC provider for " + githubOIDCURL)
+func (s *CreateProviderStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	if execCtx.DryRun() {
+		execCtx.Log().Info("[dry-run] would create OIDC provider for " + githubOIDCURL)
 		return nil
 	}
 
-	iamClient := iam.NewFromConfig(ctx.AWSConfig())
+	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
 
 	// Check if provider already exists.
-	listOut, err := iamClient.ListOpenIDConnectProviders(ctx.Context(), &iam.ListOpenIDConnectProvidersInput{})
+	listOut, err := iamClient.ListOpenIDConnectProviders(ctx, &iam.ListOpenIDConnectProvidersInput{})
 	if err == nil {
 		for _, p := range listOut.OpenIDConnectProviderList {
 			if p.Arn == nil {
 				continue
 			}
-			detail, derr := iamClient.GetOpenIDConnectProvider(ctx.Context(), &iam.GetOpenIDConnectProviderInput{
+			detail, derr := iamClient.GetOpenIDConnectProvider(ctx, &iam.GetOpenIDConnectProviderInput{
 				OpenIDConnectProviderArn: p.Arn,
 			})
 			if derr == nil && detail.Url != nil && *detail.Url == githubOIDCURL {
-				return s.storeAndOutput(ctx, *p.Arn)
+				return s.storeAndOutput(ctx, execCtx, *p.Arn)
 			}
 		}
 	}
 
 	// Fetch thumbprint. Use known stable thumbprint as fallback.
-	thumbprint, err := fetchThumbprint(ctx.Context(), githubOIDCURL)
+	thumbprint, err := fetchThumbprint(ctx, githubOIDCURL)
 	if err != nil {
 		// Fallback: use known stable thumbprint (fetched live in production).
 		thumbprint = "6938fd4d98bab03faadb97b34396831e3780aea1"
 	}
 
-	createOut, err := iamClient.CreateOpenIDConnectProvider(ctx.Context(), &iam.CreateOpenIDConnectProviderInput{
+	createOut, err := iamClient.CreateOpenIDConnectProvider(ctx, &iam.CreateOpenIDConnectProviderInput{
 		Url:            aws.String(githubOIDCURL),
 		ClientIDList:   []string{githubAudience},
 		ThumbprintList: []string{thumbprint},
@@ -98,29 +98,29 @@ func (s *CreateProviderStep) Run(ctx *pipeline.ExecutionContext) error {
 		return fmt.Errorf("CreateOpenIDConnectProvider: %w", err)
 	}
 
-	return s.storeAndOutput(ctx, *createOut.OpenIDConnectProviderArn)
+	return s.storeAndOutput(ctx, execCtx, *createOut.OpenIDConnectProviderArn)
 }
 
-func (s *CreateProviderStep) storeAndOutput(ctx *pipeline.ExecutionContext, arn string) error {
-	if err := ctx.Config().Set(ctx.Context(), platformProject, globalEnv, oidcProviderKey, arn); err != nil {
+func (s *CreateProviderStep) storeAndOutput(ctx context.Context, execCtx *pipeline.ExecutionContext, arn string) error {
+	if err := execCtx.Config().Set(ctx, platformProject, globalEnv, oidcProviderKey, arn); err != nil {
 		return fmt.Errorf("store oidc_provider_arn: %w", err)
 	}
-	ctx.SetOutput("oidc_provider_arn", arn)
+	execCtx.SetOutput("oidc_provider_arn", arn)
 	return nil
 }
 
-func (s *CreateProviderStep) Rollback(ctx *pipeline.ExecutionContext) error {
-	arn, err := ctx.Config().Get(ctx.Context(), platformProject, globalEnv, oidcProviderKey)
+func (s *CreateProviderStep) Rollback(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	arn, err := execCtx.Config().Get(ctx, platformProject, globalEnv, oidcProviderKey)
 	if err != nil {
 		return nil // nothing to roll back
 	}
-	iamClient := iam.NewFromConfig(ctx.AWSConfig())
-	if _, err := iamClient.DeleteOpenIDConnectProvider(ctx.Context(), &iam.DeleteOpenIDConnectProviderInput{
+	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	if _, err := iamClient.DeleteOpenIDConnectProvider(ctx, &iam.DeleteOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(arn),
 	}); err != nil {
 		return fmt.Errorf("DeleteOpenIDConnectProvider: %w", err)
 	}
-	return ctx.Config().Delete(ctx.Context(), platformProject, globalEnv, oidcProviderKey)
+	return execCtx.Config().Delete(ctx, platformProject, globalEnv, oidcProviderKey)
 }
 
 // fetchThumbprint fetches the TLS thumbprint from the OIDC provider endpoint.

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -33,9 +34,9 @@ func (s *EnableSCP) CredentialClass() credential.Class  { return credential.Clas
 func (s *EnableSCP) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *EnableSCP) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
-func (s *EnableSCP) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	orgClient := organizations.NewFromConfig(ctx.AWSConfig())
-	out, err := orgClient.ListRoots(ctx.Context(), &organizations.ListRootsInput{})
+func (s *EnableSCP) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	out, err := orgClient.ListRoots(ctx, &organizations.ListRootsInput{})
 	if err != nil {
 		return false, nil
 	}
@@ -51,19 +52,19 @@ func (s *EnableSCP) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
 	return false, nil
 }
 
-func (s *EnableSCP) Run(ctx *pipeline.ExecutionContext) error {
-	if ctx.DryRun() {
-		ctx.Log().Info("[dry-run] would enable SCP policy type")
+func (s *EnableSCP) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	if execCtx.DryRun() {
+		execCtx.Log().Info("[dry-run] would enable SCP policy type")
 		return nil
 	}
 
-	rootOUID, err := ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapRootOUID)
+	rootOUID, err := execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapRootOUID)
 	if err != nil {
 		return fmt.Errorf("root_ou_id not found: %w", err)
 	}
 
-	orgClient := organizations.NewFromConfig(ctx.AWSConfig())
-	_, err = orgClient.EnablePolicyType(ctx.Context(), &organizations.EnablePolicyTypeInput{
+	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	_, err = orgClient.EnablePolicyType(ctx, &organizations.EnablePolicyTypeInput{
 		RootId:     aws.String(rootOUID),
 		PolicyType: orgtypes.PolicyTypeServiceControlPolicy,
 	})
@@ -76,13 +77,13 @@ func (s *EnableSCP) Run(ctx *pipeline.ExecutionContext) error {
 	return nil
 }
 
-func (s *EnableSCP) Rollback(ctx *pipeline.ExecutionContext) error {
-	rootOUID, err := ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapRootOUID)
+func (s *EnableSCP) Rollback(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	rootOUID, err := execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapRootOUID)
 	if err != nil {
 		return nil // nothing to roll back
 	}
-	orgClient := organizations.NewFromConfig(ctx.AWSConfig())
-	_, err = orgClient.DisablePolicyType(ctx.Context(), &organizations.DisablePolicyTypeInput{
+	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	_, err = orgClient.DisablePolicyType(ctx, &organizations.DisablePolicyTypeInput{
 		RootId:     aws.String(rootOUID),
 		PolicyType: orgtypes.PolicyTypeServiceControlPolicy,
 	})

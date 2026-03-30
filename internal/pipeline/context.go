@@ -1,8 +1,6 @@
 package pipeline
 
 import (
-	"context"
-
 	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,7 +12,6 @@ import (
 // ExecutionContext is the dependency bundle passed to every Step's IsDone, Run,
 // and Rollback methods. Each step receives a context scoped to its credential class.
 type ExecutionContext struct {
-	ctx    context.Context
 	cfg    configctl.Client
 	run    runner.Runner
 	awsCfg aws.Config
@@ -27,25 +24,27 @@ type ExecutionContext struct {
 	outputs map[string]string
 }
 
+// ExecutionContextOptions configures an ExecutionContext.
+type ExecutionContextOptions struct {
+	Config   configctl.Client
+	Runner   runner.Runner
+	AWSConfig aws.Config
+	Log      logger.Logger
+	Project  string
+	Env      string
+	DryRun   bool
+}
+
 // NewExecutionContext constructs an ExecutionContext.
-func NewExecutionContext(
-	ctx context.Context,
-	cfg configctl.Client,
-	r runner.Runner,
-	awsCfg aws.Config,
-	log logger.Logger,
-	project, env string,
-	dryRun bool,
-) *ExecutionContext {
+func NewExecutionContext(opts ExecutionContextOptions) *ExecutionContext {
 	return &ExecutionContext{
-		ctx:     ctx,
-		cfg:     cfg,
-		run:     r,
-		awsCfg:  awsCfg,
-		log:     log,
-		project: project,
-		env:     env,
-		dryRun:  dryRun,
+		cfg:     opts.Config,
+		run:     opts.Runner,
+		awsCfg:  opts.AWSConfig,
+		log:     opts.Log,
+		project: opts.Project,
+		env:     opts.Env,
+		dryRun:  opts.DryRun,
 		outputs: make(map[string]string),
 	}
 }
@@ -86,6 +85,3 @@ func (c *ExecutionContext) Outputs() map[string]string {
 	}
 	return result
 }
-
-// Context returns the underlying Go context for cancellation and deadline propagation.
-func (c *ExecutionContext) Context() context.Context { return c.ctx }

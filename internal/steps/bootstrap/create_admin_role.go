@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -44,34 +45,34 @@ func (s *CreateAdminRole) RequiredInputs() []prompt.InputSpec {
 }
 func (s *CreateAdminRole) RetryPolicy() pipeline.RetryPolicy { return pipeline.NoRetry }
 
-func (s *CreateAdminRole) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	roleName, err := ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleName)
+func (s *CreateAdminRole) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	roleName, err := execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleName)
 	if err != nil || roleName == "" {
 		roleName = defaultRoleName
 	}
-	iamClient := iam.NewFromConfig(ctx.AWSConfig())
-	if _, err := iamClient.GetRole(ctx.Context(), &iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
+	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	if _, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
 		return false, nil
 	}
-	_, err = ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN)
+	_, err = execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN)
 	return err == nil, nil
 }
 
-func (s *CreateAdminRole) Run(ctx *pipeline.ExecutionContext) error {
-	if ctx.DryRun() {
-		ctx.Log().Info("[dry-run] would create IAM admin role")
+func (s *CreateAdminRole) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	if execCtx.DryRun() {
+		execCtx.Log().Info("[dry-run] would create IAM admin role")
 		return nil
 	}
 
 	// 1. Read role name from configctl.
-	roleName, err := ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleName)
+	roleName, err := execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleName)
 	if err != nil || roleName == "" {
 		roleName = defaultRoleName
 	}
 
 	// 2. Get account ID via STS.
-	stsClient := sts.NewFromConfig(ctx.AWSConfig())
-	identity, err := stsClient.GetCallerIdentity(ctx.Context(), &sts.GetCallerIdentityInput{})
+	stsClient := sts.NewFromConfig(execCtx.AWSConfig())
+	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return fmt.Errorf("GetCallerIdentity: %w", err)
 	}
@@ -86,18 +87,18 @@ func (s *CreateAdminRole) Run(ctx *pipeline.ExecutionContext) error {
   }]
 }`, accountID)
 
-	iamClient := iam.NewFromConfig(ctx.AWSConfig())
+	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
 
 	// 3. Create role; handle EntityAlreadyExistsException as success.
 	var roleARN string
-	createOut, err := iamClient.CreateRole(ctx.Context(), &iam.CreateRoleInput{
+	createOut, err := iamClient.CreateRole(ctx, &iam.CreateRoleInput{
 		RoleName:                 aws.String(roleName),
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
 		Description:              aws.String("Platform orchestrator admin role — managed by platform-orchestrator"),
 	})
 	if err != nil {
 		// Check if it already exists.
-		getOut, getErr := iamClient.GetRole(ctx.Context(), &iam.GetRoleInput{RoleName: aws.String(roleName)})
+		getOut, getErr := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)})
 		if getErr != nil {
 			return fmt.Errorf("CreateRole %q: %w", roleName, err)
 		}
@@ -108,7 +109,7 @@ func (s *CreateAdminRole) Run(ctx *pipeline.ExecutionContext) error {
 
 	// 4. Attach AdministratorAccess — treat "already attached" as success,
 	// propagate all other errors (permission denied, throttle, etc.).
-	if _, err := iamClient.AttachRolePolicy(ctx.Context(), &iam.AttachRolePolicyInput{
+	if _, err := iamClient.AttachRolePolicy(ctx, &iam.AttachRolePolicyInput{
 		RoleName:  aws.String(roleName),
 		PolicyArn: aws.String(adminRolePolicy),
 	}); err != nil {
@@ -119,31 +120,31 @@ func (s *CreateAdminRole) Run(ctx *pipeline.ExecutionContext) error {
 	}
 
 	// 5. Write ARN to configctl.
-	if err := ctx.Config().Set(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN, roleARN); err != nil {
+	if err := execCtx.Config().Set(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN, roleARN); err != nil {
 		return fmt.Errorf("store admin_role_arn: %w", err)
 	}
 
 	// 6. Set output.
-	ctx.SetOutput("admin_role_arn", roleARN)
+	execCtx.SetOutput("admin_role_arn", roleARN)
 	return nil
 }
 
-func (s *CreateAdminRole) Rollback(ctx *pipeline.ExecutionContext) error {
-	roleName, _ := ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleName)
+func (s *CreateAdminRole) Rollback(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	roleName, _ := execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleName)
 	if roleName == "" {
 		roleName = defaultRoleName
 	}
-	iamClient := iam.NewFromConfig(ctx.AWSConfig())
-	if _, err := iamClient.DetachRolePolicy(ctx.Context(), &iam.DetachRolePolicyInput{
+	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	if _, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
 		RoleName:  aws.String(roleName),
 		PolicyArn: aws.String(adminRolePolicy),
 	}); err != nil {
-		ctx.Log().Warn("DetachRolePolicy failed during rollback (may not be attached)")
+		execCtx.Log().Warn("DetachRolePolicy failed during rollback (may not be attached)")
 	}
-	if _, err := iamClient.DeleteRole(ctx.Context(), &iam.DeleteRoleInput{
+	if _, err := iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
 		RoleName: aws.String(roleName),
 	}); err != nil {
 		return fmt.Errorf("DeleteRole %q: %w", roleName, err)
 	}
-	return ctx.Config().Delete(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN)
+	return execCtx.Config().Delete(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN)
 }

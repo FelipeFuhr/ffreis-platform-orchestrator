@@ -28,27 +28,31 @@ type Engine struct {
 	dryRun   bool
 }
 
+// EngineOptions configures an Engine instance.
+type EngineOptions struct {
+	DAG      *DAG
+	State    *StateStore
+	Resolver credential.Resolver
+	Config   configctl.Client
+	Runner   runner.Runner
+	Log      logger.Logger
+	Project  string
+	Env      string
+	DryRun   bool
+}
+
 // NewEngine constructs an Engine.
-func NewEngine(
-	dag *DAG,
-	state *StateStore,
-	resolver credential.Resolver,
-	cfg configctl.Client,
-	r runner.Runner,
-	log logger.Logger,
-	project, env string,
-	dryRun bool,
-) *Engine {
+func NewEngine(opts EngineOptions) *Engine {
 	return &Engine{
-		dag:      dag,
-		state:    state,
-		resolver: resolver,
-		cfg:      cfg,
-		runner:   r,
-		log:      log,
-		project:  project,
-		env:      env,
-		dryRun:   dryRun,
+		dag:      opts.DAG,
+		state:    opts.State,
+		resolver: opts.Resolver,
+		cfg:      opts.Config,
+		runner:   opts.Runner,
+		log:      opts.Log,
+		project:  opts.Project,
+		env:      opts.Env,
+		dryRun:   opts.DryRun,
 	}
 }
 
@@ -169,7 +173,7 @@ func (e *Engine) shouldSkipStep(step Step, existing map[string]*StepState) bool 
 }
 
 func (e *Engine) buildExecutionContext(ctx context.Context, runID string, step Step) (*ExecutionContext, error) {
-	awsCfg, err := e.resolver.Resolve(step.CredentialClass())
+	awsCfg, err := e.resolver.Resolve(ctx, step.CredentialClass())
 	if err != nil {
 		failedState := &StepState{
 			StepID:     step.ID(),
@@ -182,7 +186,15 @@ func (e *Engine) buildExecutionContext(ctx context.Context, runID string, step S
 		return nil, fmt.Errorf("resolve credentials for step %q: %w", step.ID(), err)
 	}
 
-	return NewExecutionContext(ctx, e.cfg, e.runner, awsCfg, e.log, e.project, e.env, e.dryRun), nil
+	return NewExecutionContext(ExecutionContextOptions{
+		Config:   e.cfg,
+		Runner:   e.runner,
+		AWSConfig: awsCfg,
+		Log:      e.log,
+		Project:  e.project,
+		Env:      e.env,
+		DryRun:   e.dryRun,
+	}), nil
 }
 
 func (e *Engine) shouldSkipBecauseDone(
@@ -191,7 +203,7 @@ func (e *Engine) shouldSkipBecauseDone(
 	step Step,
 	execCtx *ExecutionContext,
 ) bool {
-	done, err := step.IsDone(execCtx)
+	done, err := step.IsDone(ctx, execCtx)
 	if err != nil {
 		e.log.Warn("IsDone check failed, proceeding with execution",
 			zap.String(logKeyStepID, step.ID()), zap.Error(err))
@@ -294,7 +306,7 @@ func (e *Engine) runWithRetry(ctx context.Context, step Step, execCtx *Execution
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		state.Attempts = attempt
-		lastErr = step.Run(execCtx)
+		lastErr = step.Run(ctx, execCtx)
 		if lastErr == nil {
 			return state, nil
 		}

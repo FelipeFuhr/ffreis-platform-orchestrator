@@ -131,11 +131,21 @@ func requireProjectEnv(gf *globalFlags) error {
 }
 
 func buildEngine(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.DAG, runID string) *pipeline.Engine {
-	resolver := credential.NewAWSResolver(ctx, d.cfg.AWSRegion, runID, d.cfgctl)
+	resolver := credential.NewAWSResolver(d.cfg.AWSRegion, runID, d.cfgctl)
 	state := pipeline.NewStateStore(d.cfgctl)
 	r := runner.NewExecRunner()
 
-	return pipeline.NewEngine(dag, state, resolver, d.cfgctl, r, d.log, gf.project, gf.env, gf.dryRun)
+	return pipeline.NewEngine(pipeline.EngineOptions{
+		DAG:      dag,
+		State:    state,
+		Resolver: resolver,
+		Config:   d.cfgctl,
+		Runner:   r,
+		Log:      d.log,
+		Project:  gf.project,
+		Env:      gf.env,
+		DryRun:   gf.dryRun,
+	})
 }
 
 func newRunID() string {

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -31,9 +32,9 @@ func (s *CreateOrg) CredentialClass() credential.Class  { return credential.Clas
 func (s *CreateOrg) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *CreateOrg) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
-func (s *CreateOrg) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	orgClient := organizations.NewFromConfig(ctx.AWSConfig())
-	out, err := orgClient.DescribeOrganization(ctx.Context(), &organizations.DescribeOrganizationInput{})
+func (s *CreateOrg) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	out, err := orgClient.DescribeOrganization(ctx, &organizations.DescribeOrganizationInput{})
 	if err != nil {
 		return false, nil
 	}
@@ -41,21 +42,21 @@ func (s *CreateOrg) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
 		return false, nil
 	}
 	// Check if org ID is stored.
-	_, err = ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapOrgID)
+	_, err = execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapOrgID)
 	return err == nil, nil
 }
 
-func (s *CreateOrg) Run(ctx *pipeline.ExecutionContext) error {
-	if ctx.DryRun() {
-		ctx.Log().Info("[dry-run] would create AWS Organization")
+func (s *CreateOrg) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	if execCtx.DryRun() {
+		execCtx.Log().Info("[dry-run] would create AWS Organization")
 		return nil
 	}
 
-	orgClient := organizations.NewFromConfig(ctx.AWSConfig())
+	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
 
 	var orgID string
 
-	createOut, err := orgClient.CreateOrganization(ctx.Context(), &organizations.CreateOrganizationInput{
+	createOut, err := orgClient.CreateOrganization(ctx, &organizations.CreateOrganizationInput{
 		FeatureSet: orgtypes.OrganizationFeatureSetAll,
 	})
 	if err != nil {
@@ -64,7 +65,7 @@ func (s *CreateOrg) Run(ctx *pipeline.ExecutionContext) error {
 			return fmt.Errorf("CreateOrganization: %w", err)
 		}
 		// Already in org — describe to get the ID.
-		descOut, descErr := orgClient.DescribeOrganization(ctx.Context(), &organizations.DescribeOrganizationInput{})
+		descOut, descErr := orgClient.DescribeOrganization(ctx, &organizations.DescribeOrganizationInput{})
 		if descErr != nil {
 			return fmt.Errorf("DescribeOrganization: %w", descErr)
 		}
@@ -74,7 +75,7 @@ func (s *CreateOrg) Run(ctx *pipeline.ExecutionContext) error {
 	}
 
 	// Get root OU ID.
-	rootsOut, err := orgClient.ListRoots(ctx.Context(), &organizations.ListRootsInput{})
+	rootsOut, err := orgClient.ListRoots(ctx, &organizations.ListRootsInput{})
 	if err != nil {
 		return fmt.Errorf("ListRoots: %w", err)
 	}
@@ -84,18 +85,18 @@ func (s *CreateOrg) Run(ctx *pipeline.ExecutionContext) error {
 	rootOUID := aws.ToString(rootsOut.Roots[0].Id)
 
 	// Store in configctl.
-	if err := ctx.Config().Set(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapOrgID, orgID); err != nil {
+	if err := execCtx.Config().Set(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapOrgID, orgID); err != nil {
 		return fmt.Errorf("store org_id: %w", err)
 	}
-	if err := ctx.Config().Set(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapRootOUID, rootOUID); err != nil {
+	if err := execCtx.Config().Set(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyBootstrapRootOUID, rootOUID); err != nil {
 		return fmt.Errorf("store root_ou_id: %w", err)
 	}
 
-	ctx.SetOutput("org_id", orgID)
-	ctx.SetOutput("root_ou_id", rootOUID)
+	execCtx.SetOutput("org_id", orgID)
+	execCtx.SetOutput("root_ou_id", rootOUID)
 	return nil
 }
 
-func (s *CreateOrg) Rollback(ctx *pipeline.ExecutionContext) error {
+func (s *CreateOrg) Rollback(_ context.Context, _ *pipeline.ExecutionContext) error {
 	return pipeline.ErrRollbackNotSupported("create_org")
 }

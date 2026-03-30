@@ -29,6 +29,8 @@ type InteractivePrompter struct {
 	out io.Writer
 }
 
+const errReadInput = "read input: %w"
+
 // NewInteractivePrompter constructs a prompter that reads from os.Stdin.
 func NewInteractivePrompter() *InteractivePrompter {
 	return &InteractivePrompter{
@@ -90,7 +92,7 @@ func (p *InteractivePrompter) readInput(label string, sensitive bool) (string, e
 
 	raw, err := p.in.ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("read input: %w", err)
+		return "", fmt.Errorf(errReadInput, err)
 	}
 	return strings.TrimRight(raw, "\r\n"), nil
 }
@@ -106,7 +108,7 @@ func (p *InteractivePrompter) Confirm(message string) (bool, error) {
 	fmt.Fprintf(p.out, "%s [y/N]: ", message)
 	raw, err := p.in.ReadString('\n')
 	if err != nil {
-		return false, fmt.Errorf("read input: %w", err)
+		return false, fmt.Errorf(errReadInput, err)
 	}
 	answer := strings.ToLower(strings.TrimSpace(raw))
 	return answer == "y" || answer == "yes", nil
@@ -116,7 +118,7 @@ func (p *InteractivePrompter) Gate(message, keyword string) error {
 	fmt.Fprintf(p.out, "\n%s\nType %q to confirm: ", message, keyword)
 	raw, err := p.in.ReadString('\n')
 	if err != nil {
-		return fmt.Errorf("read input: %w", err)
+		return fmt.Errorf(errReadInput, err)
 	}
 	input := strings.TrimSpace(raw)
 	if input != keyword {

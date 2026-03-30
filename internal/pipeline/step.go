@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"context"
+
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/prompt"
 )
@@ -32,15 +34,15 @@ type Step interface {
 	// IsDone reports whether the step's effect already exists in the world.
 	// When true the engine marks the step Skipped without calling Run.
 	// IsDone must be read-only; it must not modify external state.
-	IsDone(ctx *ExecutionContext) (bool, error)
+	IsDone(ctx context.Context, execCtx *ExecutionContext) (bool, error)
 
 	// Run executes the step. It must be idempotent: if called on an already-
 	// complete step it must succeed without creating duplicate resources.
-	Run(ctx *ExecutionContext) error
+	Run(ctx context.Context, execCtx *ExecutionContext) error
 
 	// Rollback undoes the effects of Run. Return ErrRollbackNotSupported if
 	// the step cannot be reversed. Rollback is never called automatically.
-	Rollback(ctx *ExecutionContext) error
+	Rollback(ctx context.Context, execCtx *ExecutionContext) error
 }
 
 // RetryPolicy configures the retry behaviour for a single step.

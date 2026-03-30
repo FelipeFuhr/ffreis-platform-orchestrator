@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
@@ -22,39 +23,39 @@ func (s *WriteOutputsStep) CredentialClass() credential.Class  { return credenti
 func (s *WriteOutputsStep) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *WriteOutputsStep) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
-func (s *WriteOutputsStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	_, err := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), outputKeyGitHubRoleARN)
+func (s *WriteOutputsStep) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	_, err := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), outputKeyGitHubRoleARN)
 	return err == nil, nil
 }
 
-func (s *WriteOutputsStep) Run(ctx *pipeline.ExecutionContext) error {
+func (s *WriteOutputsStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
 	// 1. Read from _platform/global.
-	roleARN, err := ctx.Config().Get(ctx.Context(), platformProject, globalEnv, githubRoleARNKey)
+	roleARN, err := execCtx.Config().Get(ctx, platformProject, globalEnv, githubRoleARNKey)
 	if err != nil {
 		return fmt.Errorf("read github_actions_role_arn from _platform/global: %w", err)
 	}
-	providerARN, err := ctx.Config().Get(ctx.Context(), platformProject, globalEnv, oidcProviderKey)
+	providerARN, err := execCtx.Config().Get(ctx, platformProject, globalEnv, oidcProviderKey)
 	if err != nil {
 		return fmt.Errorf("read oidc_provider_arn from _platform/global: %w", err)
 	}
 
 	// 2. Write to target project/env.
-	if err := ctx.Config().Set(ctx.Context(), ctx.Project(), ctx.Env(), outputKeyGitHubRoleARN, roleARN); err != nil {
+	if err := execCtx.Config().Set(ctx, execCtx.Project(), execCtx.Env(), outputKeyGitHubRoleARN, roleARN); err != nil {
 		return fmt.Errorf("write github_actions_role_arn: %w", err)
 	}
-	if err := ctx.Config().Set(ctx.Context(), ctx.Project(), ctx.Env(), outputKeyOIDCProvider, providerARN); err != nil {
+	if err := execCtx.Config().Set(ctx, execCtx.Project(), execCtx.Env(), outputKeyOIDCProvider, providerARN); err != nil {
 		return fmt.Errorf("write oidc_provider_arn: %w", err)
 	}
 	return nil
 }
 
-func (s *WriteOutputsStep) Rollback(ctx *pipeline.ExecutionContext) error {
+func (s *WriteOutputsStep) Rollback(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
 	keys := []string{
 		outputKeyGitHubRoleARN,
 		outputKeyOIDCProvider,
 	}
 	for _, k := range keys {
-		_ = ctx.Config().Delete(ctx.Context(), ctx.Project(), ctx.Env(), k)
+		_ = execCtx.Config().Delete(ctx, execCtx.Project(), execCtx.Env(), k)
 	}
 	return nil
 }

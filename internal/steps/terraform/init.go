@@ -1,6 +1,7 @@
 package terraform
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -50,8 +51,8 @@ func (s *InitStep) RequiredInputs() []prompt.InputSpec {
 }
 func (s *InitStep) RetryPolicy() pipeline.RetryPolicy { return pipeline.RetryThrice }
 
-func (s *InitStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	modulePath, err := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), configKeyOrgModulePath)
+func (s *InitStep) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	modulePath, err := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), configKeyOrgModulePath)
 	if err != nil || modulePath == "" {
 		return false, nil
 	}
@@ -59,29 +60,29 @@ func (s *InitStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
 	return statErr == nil, nil
 }
 
-func (s *InitStep) Run(ctx *pipeline.ExecutionContext) error {
-	modulePath, err := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), configKeyOrgModulePath)
+func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	modulePath, err := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), configKeyOrgModulePath)
 	if err != nil || modulePath == "" {
 		return fmt.Errorf("input %q is required", configKeyOrgModulePath)
 	}
-	backendBucket, _ := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), "terraform/backend_bucket")
-	backendKey, _ := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), "terraform/backend_key")
+	backendBucket, _ := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), "terraform/backend_bucket")
+	backendKey, _ := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), "terraform/backend_key")
 	if backendKey == "" {
 		backendKey = "org/terraform.tfstate"
 	}
-	backendRegion, _ := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), "terraform/backend_region")
+	backendRegion, _ := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), "terraform/backend_region")
 
-	env, err := awsEnvFromConfig(ctx.Context(), ctx.AWSConfig())
+	env, err := awsEnvFromConfig(ctx, execCtx.AWSConfig())
 	if err != nil {
 		return err
 	}
 
-	if ctx.DryRun() {
-		ctx.Log().Info("[dry-run] would run: terraform init in " + modulePath)
+	if execCtx.DryRun() {
+		execCtx.Log().Info("[dry-run] would run: terraform init in " + modulePath)
 		return nil
 	}
 
-	result, err := ctx.Runner().Exec("terraform", []string{
+	result, err := execCtx.Runner().Exec("terraform", []string{
 		"init",
 		"-backend-config=bucket=" + backendBucket,
 		"-backend-config=key=" + backendKey,
@@ -97,7 +98,7 @@ func (s *InitStep) Run(ctx *pipeline.ExecutionContext) error {
 	return nil
 }
 
-func (s *InitStep) Rollback(ctx *pipeline.ExecutionContext) error {
+func (s *InitStep) Rollback(_ context.Context, _ *pipeline.ExecutionContext) error {
 	// init is idempotent; removing .terraform is safe but unnecessary.
 	return nil
 }

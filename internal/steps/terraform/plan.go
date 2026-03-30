@@ -1,6 +1,7 @@
 package terraform
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -24,8 +25,8 @@ func (s *PlanStep) CredentialClass() credential.Class  { return credential.Class
 func (s *PlanStep) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *PlanStep) RetryPolicy() pipeline.RetryPolicy  { return pipeline.RetryThrice }
 
-func (s *PlanStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	modulePath, err := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), configKeyOrgModulePath)
+func (s *PlanStep) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	modulePath, err := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), configKeyOrgModulePath)
 	if err != nil || modulePath == "" {
 		return false, nil
 	}
@@ -34,29 +35,29 @@ func (s *PlanStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
 		return false, nil
 	}
 	// Check stored output.
-	v, getErr := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(),
+	v, getErr := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(),
 		"orchestrator/step/terraform_plan_org/output/plan_has_changes")
 	return getErr == nil && v == "false", nil
 }
 
-func (s *PlanStep) Run(ctx *pipeline.ExecutionContext) error {
-	modulePath, err := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), configKeyOrgModulePath)
+func (s *PlanStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	modulePath, err := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), configKeyOrgModulePath)
 	if err != nil || modulePath == "" {
 		return fmt.Errorf("input %q is required", configKeyOrgModulePath)
 	}
 
-	env, err := awsEnvFromConfig(ctx.Context(), ctx.AWSConfig())
+	env, err := awsEnvFromConfig(ctx, execCtx.AWSConfig())
 	if err != nil {
 		return err
 	}
 
-	if ctx.DryRun() {
-		ctx.Log().Info("[dry-run] would run: terraform plan in " + modulePath)
-		ctx.SetOutput("plan_has_changes", "false")
+	if execCtx.DryRun() {
+		execCtx.Log().Info("[dry-run] would run: terraform plan in " + modulePath)
+		execCtx.SetOutput("plan_has_changes", "false")
 		return nil
 	}
 
-	result, err := ctx.Runner().Exec("terraform", []string{
+	result, err := execCtx.Runner().Exec("terraform", []string{
 		"plan", "-out=org.tfplan", "-detailed-exitcode", "-input=false",
 	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 
@@ -70,12 +71,12 @@ func (s *PlanStep) Run(ctx *pipeline.ExecutionContext) error {
 		}
 	}
 
-	ctx.SetOutput("plan_has_changes", hasChanges)
+	execCtx.SetOutput("plan_has_changes", hasChanges)
 	return nil
 }
 
-func (s *PlanStep) Rollback(ctx *pipeline.ExecutionContext) error {
-	modulePath, err := ctx.Config().Get(ctx.Context(), ctx.Project(), ctx.Env(), configKeyOrgModulePath)
+func (s *PlanStep) Rollback(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	modulePath, err := execCtx.Config().Get(ctx, execCtx.Project(), execCtx.Env(), configKeyOrgModulePath)
 	if err != nil || modulePath == "" {
 		return nil
 	}

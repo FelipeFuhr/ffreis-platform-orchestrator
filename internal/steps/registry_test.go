@@ -1,6 +1,7 @@
 package steps_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
@@ -21,9 +22,9 @@ func (s *minimalStep) Deps() []string                                      { ret
 func (s *minimalStep) CredentialClass() credential.Class                   { return credential.ClassRoot }
 func (s *minimalStep) RequiredInputs() []prompt.InputSpec                  { return nil }
 func (s *minimalStep) RetryPolicy() pipeline.RetryPolicy                   { return pipeline.NoRetry }
-func (s *minimalStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) { return false, nil }
-func (s *minimalStep) Run(ctx *pipeline.ExecutionContext) error            { return nil }
-func (s *minimalStep) Rollback(ctx *pipeline.ExecutionContext) error {
+func (s *minimalStep) IsDone(_ context.Context, _ *pipeline.ExecutionContext) (bool, error) { return false, nil }
+func (s *minimalStep) Run(_ context.Context, _ *pipeline.ExecutionContext) error            { return nil }
+func (s *minimalStep) Rollback(_ context.Context, _ *pipeline.ExecutionContext) error {
 	return pipeline.ErrRollbackNotSupported(s.id)
 }
 

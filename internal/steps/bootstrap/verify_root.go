@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -22,27 +23,27 @@ func (s *VerifyRootStep) CredentialClass() credential.Class  { return credential
 func (s *VerifyRootStep) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *VerifyRootStep) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
-func (s *VerifyRootStep) IsDone(ctx *pipeline.ExecutionContext) (bool, error) {
-	_, err := ctx.Config().Get(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAccountID)
+func (s *VerifyRootStep) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
+	_, err := execCtx.Config().Get(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAccountID)
 	return err == nil, nil
 }
 
-func (s *VerifyRootStep) Run(ctx *pipeline.ExecutionContext) error {
-	stsClient := sts.NewFromConfig(ctx.AWSConfig())
-	out, err := stsClient.GetCallerIdentity(ctx.Context(), &sts.GetCallerIdentityInput{})
+func (s *VerifyRootStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
+	stsClient := sts.NewFromConfig(execCtx.AWSConfig())
+	out, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return fmt.Errorf("GetCallerIdentity failed — check root credentials: %w", err)
 	}
 	if out.Account == nil {
 		return fmt.Errorf("GetCallerIdentity returned no account ID")
 	}
-	if err := ctx.Config().Set(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAccountID, *out.Account); err != nil {
+	if err := execCtx.Config().Set(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAccountID, *out.Account); err != nil {
 		return fmt.Errorf("store account_id: %w", err)
 	}
-	ctx.SetOutput("account_id", *out.Account)
+	execCtx.SetOutput("account_id", *out.Account)
 	return nil
 }
 
-func (s *VerifyRootStep) Rollback(ctx *pipeline.ExecutionContext) error {
+func (s *VerifyRootStep) Rollback(_ context.Context, _ *pipeline.ExecutionContext) error {
 	return pipeline.ErrRollbackNotSupported(s.ID())
 }

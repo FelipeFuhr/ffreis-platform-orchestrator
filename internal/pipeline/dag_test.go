@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
@@ -21,9 +22,11 @@ func (s *testStep) Deps() []string                             { return s.deps }
 func (s *testStep) CredentialClass() credential.Class          { return s.class }
 func (s *testStep) RequiredInputs() []prompt.InputSpec         { return nil }
 func (s *testStep) RetryPolicy() RetryPolicy                   { return NoRetry }
-func (s *testStep) IsDone(ctx *ExecutionContext) (bool, error) { return false, nil }
-func (s *testStep) Run(ctx *ExecutionContext) error            { return nil }
-func (s *testStep) Rollback(ctx *ExecutionContext) error       { return ErrRollbackNotSupported(s.id) }
+func (s *testStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) { return false, nil }
+func (s *testStep) Run(_ context.Context, _ *ExecutionContext) error            { return nil }
+func (s *testStep) Rollback(_ context.Context, _ *ExecutionContext) error {
+	return ErrRollbackNotSupported(s.id)
+}
 
 func TestDAG_TopoSort_LinearChain(t *testing.T) {
 	// a → b → c

@@ -66,9 +66,10 @@ func (m *mockCfg) List(ctx context.Context, project, env string) (map[string]str
 // Resolve(ClassAdmin) returns error containing "not found".
 func TestResolveAdminBeforeBootstrap(t *testing.T) {
 	store := newMockCfg()
-	resolver := credential.NewAWSResolver(context.Background(), testRegion, testRunID, store)
+	ctx := context.Background()
+	resolver := credential.NewAWSResolver(testRegion, testRunID, store)
 
-	_, err := resolver.Resolve(credential.ClassAdmin)
+	_, err := resolver.Resolve(ctx, credential.ClassAdmin)
 	if err == nil {
 		t.Fatal("expected error when admin_role_arn is not set, got nil")
 	}
@@ -89,9 +90,9 @@ func TestResolveAdminAfterBootstrap(t *testing.T) {
 		t.Fatalf("Set: %v", err)
 	}
 
-	resolver := credential.NewAWSResolver(ctx, testRegion, testRunID, store)
+	resolver := credential.NewAWSResolver(testRegion, testRunID, store)
 
-	_, err := resolver.Resolve(credential.ClassAdmin)
+	_, err := resolver.Resolve(ctx, credential.ClassAdmin)
 	// In a unit test without real AWS credentials, this will fail at the
 	// credential-loading or STS AssumeRole stage — but NOT with "not found".
 	// The important thing is that we got past the configctl lookup.
@@ -111,11 +112,12 @@ func TestResolveAdminAfterBootstrap(t *testing.T) {
 // mock configctl client at all (call count stays 0).
 func TestResolveRootDoesNotUseStore(t *testing.T) {
 	store := newMockCfg()
-	resolver := credential.NewAWSResolver(context.Background(), testRegion, testRunID, store)
+	ctx := context.Background()
+	resolver := credential.NewAWSResolver(testRegion, testRunID, store)
 
 	// Root resolution may fail (no real AWS env), but the important thing is
 	// that it never calls the configctl store.
-	_, _ = resolver.Resolve(credential.ClassRoot)
+	_, _ = resolver.Resolve(ctx, credential.ClassRoot)
 
 	store.mu.Lock()
 	calls := store.getCalls

@@ -83,7 +83,7 @@ func newClassTrackingResolver() *classTrackingResolver {
 	return &classTrackingResolver{}
 }
 
-func (r *classTrackingResolver) Resolve(class credential.Class) (aws.Config, error) {
+func (r *classTrackingResolver) Resolve(_ context.Context, class credential.Class) (aws.Config, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.resolved = append(r.resolved, class)
@@ -115,9 +115,11 @@ func (s *stubStep) Deps() []string                           { return s.deps }
 func (s *stubStep) CredentialClass() credential.Class        { return s.class }
 func (s *stubStep) RequiredInputs() []prompt.InputSpec       { return nil }
 func (s *stubStep) RetryPolicy() RetryPolicy                 { return NoRetry }
-func (s *stubStep) IsDone(_ *ExecutionContext) (bool, error) { return s.done, nil }
-func (s *stubStep) Run(_ *ExecutionContext) error            { s.runCnt++; return s.runErr }
-func (s *stubStep) Rollback(_ *ExecutionContext) error       { return ErrRollbackNotSupported(s.id) }
+func (s *stubStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) { return s.done, nil }
+func (s *stubStep) Run(_ context.Context, _ *ExecutionContext) error            { s.runCnt++; return s.runErr }
+func (s *stubStep) Rollback(_ context.Context, _ *ExecutionContext) error {
+	return ErrRollbackNotSupported(s.id)
+}
 
 // stubWriteARNStep writes orchestrator/admin_role_arn to the store during Run
 // to simulate a bootstrap step that makes the ARN available to subsequent steps.
@@ -133,11 +135,13 @@ func (s *stubWriteARNStep) Deps() []string                           { return ni
 func (s *stubWriteARNStep) CredentialClass() credential.Class        { return s.class }
 func (s *stubWriteARNStep) RequiredInputs() []prompt.InputSpec       { return nil }
 func (s *stubWriteARNStep) RetryPolicy() RetryPolicy                 { return NoRetry }
-func (s *stubWriteARNStep) IsDone(_ *ExecutionContext) (bool, error) { return false, nil }
-func (s *stubWriteARNStep) Run(ctx *ExecutionContext) error {
-	return s.store.Set(ctx.Context(), platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN, testconstants.AdminRoleARNPlatformAdmin)
+func (s *stubWriteARNStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) { return false, nil }
+func (s *stubWriteARNStep) Run(ctx context.Context, _ *ExecutionContext) error {
+	return s.store.Set(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN, testconstants.AdminRoleARNPlatformAdmin)
 }
-func (s *stubWriteARNStep) Rollback(_ *ExecutionContext) error { return ErrRollbackNotSupported(s.id) }
+func (s *stubWriteARNStep) Rollback(_ context.Context, _ *ExecutionContext) error {
+	return ErrRollbackNotSupported(s.id)
+}
 
 // --- helpers ---
 
@@ -146,12 +150,32 @@ func buildTestEngine(dag *DAG, store *memConfigStore) *Engine {
 	resolver := newClassTrackingResolver()
 	r := &mockRunner{}
 	log := logger.Nop()
-	return NewEngine(dag, state, resolver, store, r, log, testProject, testEnv, false)
+	return NewEngine(EngineOptions{
+		DAG:      dag,
+		State:    state,
+		Resolver: resolver,
+		Config:   store,
+		Runner:   r,
+		Log:      log,
+		Project:  testProject,
+		Env:      testEnv,
+		DryRun:   false,
+	})
 }
 
 func buildTestEngineWithResolver(dag *DAG, store *memConfigStore, resolver credential.Resolver) *Engine {
 	state := NewStateStore(store)
 	r := &mockRunner{}
 	log := logger.Nop()
-	return NewEngine(dag, state, resolver, store, r, log, testProject, testEnv, false)
+	return NewEngine(EngineOptions{
+		DAG:      dag,
+		State:    state,
+		Resolver: resolver,
+		Config:   store,
+		Runner:   r,
+		Log:      log,
+		Project:  testProject,
+		Env:      testEnv,
+		DryRun:   false,
+	})
 }
