@@ -16,12 +16,12 @@ type testStep struct {
 	class credential.Class
 }
 
-func (s *testStep) ID() string                                 { return s.id }
-func (s *testStep) Name() string                               { return s.name }
-func (s *testStep) Deps() []string                             { return s.deps }
-func (s *testStep) CredentialClass() credential.Class          { return s.class }
-func (s *testStep) RequiredInputs() []prompt.InputSpec         { return nil }
-func (s *testStep) RetryPolicy() RetryPolicy                   { return NoRetry }
+func (s *testStep) ID() string                                                  { return s.id }
+func (s *testStep) Name() string                                                { return s.name }
+func (s *testStep) Deps() []string                                              { return s.deps }
+func (s *testStep) CredentialClass() credential.Class                           { return s.class }
+func (s *testStep) RequiredInputs() []prompt.InputSpec                          { return nil }
+func (s *testStep) RetryPolicy() RetryPolicy                                    { return NoRetry }
 func (s *testStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) { return false, nil }
 func (s *testStep) Run(_ context.Context, _ *ExecutionContext) error            { return nil }
 func (s *testStep) Rollback(_ context.Context, _ *ExecutionContext) error {

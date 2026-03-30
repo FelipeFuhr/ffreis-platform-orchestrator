@@ -16,14 +16,16 @@ type minimalStep struct {
 	deps []string
 }
 
-func (s *minimalStep) ID() string                                          { return s.id }
-func (s *minimalStep) Name() string                                        { return s.id }
-func (s *minimalStep) Deps() []string                                      { return s.deps }
-func (s *minimalStep) CredentialClass() credential.Class                   { return credential.ClassRoot }
-func (s *minimalStep) RequiredInputs() []prompt.InputSpec                  { return nil }
-func (s *minimalStep) RetryPolicy() pipeline.RetryPolicy                   { return pipeline.NoRetry }
-func (s *minimalStep) IsDone(_ context.Context, _ *pipeline.ExecutionContext) (bool, error) { return false, nil }
-func (s *minimalStep) Run(_ context.Context, _ *pipeline.ExecutionContext) error            { return nil }
+func (s *minimalStep) ID() string                         { return s.id }
+func (s *minimalStep) Name() string                       { return s.id }
+func (s *minimalStep) Deps() []string                     { return s.deps }
+func (s *minimalStep) CredentialClass() credential.Class  { return credential.ClassRoot }
+func (s *minimalStep) RequiredInputs() []prompt.InputSpec { return nil }
+func (s *minimalStep) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
+func (s *minimalStep) IsDone(_ context.Context, _ *pipeline.ExecutionContext) (bool, error) {
+	return false, nil
+}
+func (s *minimalStep) Run(_ context.Context, _ *pipeline.ExecutionContext) error { return nil }
 func (s *minimalStep) Rollback(_ context.Context, _ *pipeline.ExecutionContext) error {
 	return pipeline.ErrRollbackNotSupported(s.id)
 }

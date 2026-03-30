@@ -26,13 +26,13 @@ type ExecutionContext struct {
 
 // ExecutionContextOptions configures an ExecutionContext.
 type ExecutionContextOptions struct {
-	Config   configctl.Client
-	Runner   runner.Runner
+	Config    configctl.Client
+	Runner    runner.Runner
 	AWSConfig aws.Config
-	Log      logger.Logger
-	Project  string
-	Env      string
-	DryRun   bool
+	Log       logger.Logger
+	Project   string
+	Env       string
+	DryRun    bool
 }
 
 // NewExecutionContext constructs an ExecutionContext.

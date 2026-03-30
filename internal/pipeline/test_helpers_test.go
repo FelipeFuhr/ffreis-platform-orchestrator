@@ -109,12 +109,12 @@ type stubStep struct {
 	done   bool
 }
 
-func (s *stubStep) ID() string                               { return s.id }
-func (s *stubStep) Name() string                             { return s.id }
-func (s *stubStep) Deps() []string                           { return s.deps }
-func (s *stubStep) CredentialClass() credential.Class        { return s.class }
-func (s *stubStep) RequiredInputs() []prompt.InputSpec       { return nil }
-func (s *stubStep) RetryPolicy() RetryPolicy                 { return NoRetry }
+func (s *stubStep) ID() string                                                  { return s.id }
+func (s *stubStep) Name() string                                                { return s.id }
+func (s *stubStep) Deps() []string                                              { return s.deps }
+func (s *stubStep) CredentialClass() credential.Class                           { return s.class }
+func (s *stubStep) RequiredInputs() []prompt.InputSpec                          { return nil }
+func (s *stubStep) RetryPolicy() RetryPolicy                                    { return NoRetry }
 func (s *stubStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) { return s.done, nil }
 func (s *stubStep) Run(_ context.Context, _ *ExecutionContext) error            { s.runCnt++; return s.runErr }
 func (s *stubStep) Rollback(_ context.Context, _ *ExecutionContext) error {
@@ -129,13 +129,15 @@ type stubWriteARNStep struct {
 	store configctl.Client
 }
 
-func (s *stubWriteARNStep) ID() string                               { return s.id }
-func (s *stubWriteARNStep) Name() string                             { return s.id }
-func (s *stubWriteARNStep) Deps() []string                           { return nil }
-func (s *stubWriteARNStep) CredentialClass() credential.Class        { return s.class }
-func (s *stubWriteARNStep) RequiredInputs() []prompt.InputSpec       { return nil }
-func (s *stubWriteARNStep) RetryPolicy() RetryPolicy                 { return NoRetry }
-func (s *stubWriteARNStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) { return false, nil }
+func (s *stubWriteARNStep) ID() string                         { return s.id }
+func (s *stubWriteARNStep) Name() string                       { return s.id }
+func (s *stubWriteARNStep) Deps() []string                     { return nil }
+func (s *stubWriteARNStep) CredentialClass() credential.Class  { return s.class }
+func (s *stubWriteARNStep) RequiredInputs() []prompt.InputSpec { return nil }
+func (s *stubWriteARNStep) RetryPolicy() RetryPolicy           { return NoRetry }
+func (s *stubWriteARNStep) IsDone(_ context.Context, _ *ExecutionContext) (bool, error) {
+	return false, nil
+}
 func (s *stubWriteARNStep) Run(ctx context.Context, _ *ExecutionContext) error {
 	return s.store.Set(ctx, platformcfg.PlatformProject, platformcfg.GlobalEnv, platformcfg.KeyAdminRoleARN, testconstants.AdminRoleARNPlatformAdmin)
 }

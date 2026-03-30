@@ -187,13 +187,13 @@ func (e *Engine) buildExecutionContext(ctx context.Context, runID string, step S
 	}
 
 	return NewExecutionContext(ExecutionContextOptions{
-		Config:   e.cfg,
-		Runner:   e.runner,
+		Config:    e.cfg,
+		Runner:    e.runner,
 		AWSConfig: awsCfg,
-		Log:      e.log,
-		Project:  e.project,
-		Env:      e.env,
-		DryRun:   e.dryRun,
+		Log:       e.log,
+		Project:   e.project,
+		Env:       e.env,
+		DryRun:    e.dryRun,
 	}), nil
 }
 
