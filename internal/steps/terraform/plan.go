@@ -3,7 +3,6 @@ package terraform
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
@@ -64,13 +63,12 @@ func (s *PlanStep) Run(ctx *pipeline.ExecutionContext) error {
 	hasChanges := "false"
 	if err != nil {
 		// Exit code 2 means changes are present — not an error.
-		if strings.Contains(err.Error(), "exited 2") {
+		if result.ExitCode == 2 {
 			hasChanges = "true"
 		} else {
 			return fmt.Errorf("terraform plan: %w", err)
 		}
 	}
-	_ = result
 
 	ctx.SetOutput("plan_has_changes", hasChanges)
 	return nil

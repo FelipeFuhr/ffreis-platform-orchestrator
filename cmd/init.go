@@ -155,7 +155,7 @@ func collectInputs(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.
 
 	var pr prompt.Prompter
 	if d.cfg.NonInteractive {
-		pr = prompt.NewBatchPrompter(nil, d.cfgctl, gf.project, gf.env, func(f string, a ...any) {
+		pr = prompt.NewBatchPrompter(ctx, d.cfgctl, gf.project, gf.env, func(f string, a ...any) {
 			d.log.Info(fmt.Sprintf(f, a...))
 		})
 	} else {

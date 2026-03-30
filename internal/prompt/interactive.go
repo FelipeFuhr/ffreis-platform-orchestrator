@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // Prompter interactively collects a single value from the operator.
@@ -77,9 +79,13 @@ func (p *InteractivePrompter) printPrompt(label, def string) {
 
 func (p *InteractivePrompter) readInput(label string, sensitive bool) (string, error) {
 	if sensitive {
-		// Masked input: disable echo via terminal control codes if available.
-		// Fallback to plain read with a warning.
 		fmt.Fprintf(p.out, "(input will not be echoed)\n%s: ", label)
+		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return "", fmt.Errorf("read password: %w", err)
+		}
+		fmt.Fprintln(p.out) // newline after hidden input
+		return string(raw), nil
 	}
 
 	raw, err := p.in.ReadString('\n')

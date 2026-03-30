@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -98,6 +99,9 @@ func (inv *Invoker) exec(ctx context.Context, args []string) error {
 	cmd := exec.CommandContext(ctx, inv.opts.Binary, args...) // #nosec G204 — binary from config, not user input
 
 	env := []string{}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	}
 	if inv.opts.Token != "" {
 		env = append(env, "GITHUB_TOKEN="+inv.opts.Token)
 	}

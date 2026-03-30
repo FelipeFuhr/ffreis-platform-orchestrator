@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"context"
 	"crypto/sha1" // #nosec G505
 	"fmt"
 	"net/http"
@@ -81,7 +82,7 @@ func (s *CreateProviderStep) Run(ctx *pipeline.ExecutionContext) error {
 	}
 
 	// Fetch thumbprint. Use known stable thumbprint as fallback.
-	thumbprint, err := fetchThumbprint(githubOIDCURL)
+	thumbprint, err := fetchThumbprint(ctx.Context(), githubOIDCURL)
 	if err != nil {
 		// Fallback: use known stable thumbprint (fetched live in production).
 		thumbprint = "6938fd4d98bab03faadb97b34396831e3780aea1"
@@ -123,8 +124,12 @@ func (s *CreateProviderStep) Rollback(ctx *pipeline.ExecutionContext) error {
 }
 
 // fetchThumbprint fetches the TLS thumbprint from the OIDC provider endpoint.
-func fetchThumbprint(rawURL string) (string, error) {
-	resp, err := http.Get(rawURL + "/.well-known/openid-configuration") // #nosec G107
+func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL+"/.well-known/openid-configuration", nil)
+	if err != nil {
+		return "", fmt.Errorf("build request %s: %w", rawURL, err)
+	}
+	resp, err := http.DefaultClient.Do(req) // #nosec G107
 	if err != nil {
 		return "", fmt.Errorf("GET %s: %w", rawURL, err)
 	}

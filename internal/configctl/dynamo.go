@@ -75,19 +75,32 @@ func (s *DynamoStore) Get(ctx context.Context, project, env, key string) (string
 }
 
 func (s *DynamoStore) Set(ctx context.Context, project, env, key, value string) error {
-	// Get current version for optimistic update.
-	var version int64
-	existing, err := s.Get(ctx, project, env, key)
-	if err != nil && !IsNotFound(err) {
-		return fmt.Errorf("get current version: %w", err)
+	// Get current record to derive version for optimistic-style update.
+	var (
+		currentVersion int64
+		existing       record
+	)
+
+	out, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.tableName),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: pk(project, env)},
+			"SK": &types.AttributeValueMemberS{Value: sk(key)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("dynamodb GetItem: %w", err)
 	}
-	if err == nil && existing == value {
+
+	if len(out.Item) != 0 {
+		if err := attributevalue.UnmarshalMap(out.Item, &existing); err != nil {
+			return fmt.Errorf("unmarshal existing record: %w", err)
+		}
 		// Value unchanged — skip write (idempotent).
-		return nil
-	}
-	if !IsNotFound(err) {
-		// Increment version on update.
-		version = 1
+		if existing.Value == value {
+			return nil
+		}
+		currentVersion = existing.Version
 	}
 
 	r := record{
@@ -95,7 +108,7 @@ func (s *DynamoStore) Set(ctx context.Context, project, env, key, value string) 
 		SK:        sk(key),
 		Value:     value,
 		ItemType:  "config",
-		Version:   version + 1,
+		Version:   currentVersion + 1,
 		Checksum:  csumOf(value),
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}

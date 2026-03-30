@@ -76,7 +76,7 @@ func (e *Engine) Init(ctx context.Context, runID string) error {
 }
 
 // Resume loads existing step states and re-runs from the first non-succeeded step.
-// RUNNING states are reset to PENDING (process-kill safety).
+// RUNNING states are reset to FAILED (process-kill safety).
 func (e *Engine) Resume(ctx context.Context, runID string) error {
 	existing, err := e.state.LoadAllStepStates(ctx, runID)
 	if err != nil {
