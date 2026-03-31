@@ -43,35 +43,75 @@ jobs:
       scan-history: true
       upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
 
-	  fmt:
-	    name: Format (gofmt)
-	    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-fmt.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
-	    with:
-	      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
-	      working-directory: "."
+  # ── 2. Format ──────────────────────────────────────────────────────────────
+  fmt:
+    name: Format (gofmt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          cache: true
+
+      - name: gofmt (check)
+        run: |
+          gofmt -w .
+          git diff --exit-code
 
   # ── 3. Vet + Lint ──────────────────────────────────────────────────────────
-	  lint:
-	    name: Lint (vet + golangci-lint)
-	    needs: [fmt]
-	    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-lint.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
-	    with:
-	      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
-	      golangci-lint-version: ${{ vars.GOLANGCI_LINT_VERSION || 'v2.11.3' }}
-	      working-directory: "."
-	      lint-args: "--timeout=5m"
+  lint:
+    name: Lint (vet + golangci-lint)
+    runs-on: ubuntu-latest
+    needs: [fmt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: ${{ vars.GOLANGCI_LINT_VERSION || env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=5m
+          working-directory: .
 
   # ── 4. Test + Coverage + Vulnerability scan ────────────────────────────────
-	  test:
-	    name: Test
-	    needs: [fmt]
-	    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-test.yml@6a9b12a1c8b8a6a8ba0002a8077a1713ddf31be8
-	    with:
-	      go-version: ${{ vars.GO_VERSION || '1.25.8' }}
-	      working-directory: "."
-	      test-timeout: "120s"
-	      run-govulncheck: true
-	      coverage-artifact-name: "coverage"
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [fmt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          cache: true
+
+      - name: go test (coverage)
+        run: |
+          go test ./... \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            -count=1 \
+            -timeout=120s
+
+      - uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          check-latest: true
+          work-dir: .
+          cache: true
+          go-package: ./...
+          repo-checkout: false
 
   # ── 5. Container test stage ────────────────────────────────────────────────
   # Builds the 'test' Containerfile stage which re-runs tests inside the same
