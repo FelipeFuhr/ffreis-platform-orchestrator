@@ -2,7 +2,6 @@ package configctl
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -41,21 +40,11 @@ type record struct {
 	Value     string `dynamodbav:"value"`
 	ItemType  string `dynamodbav:"item_type"`
 	Version   int64  `dynamodbav:"version"`
-	Checksum  string `dynamodbav:"checksum"`
 	UpdatedAt string `dynamodbav:"updated_at"`
 }
 
 func pk(project, env string) string { return "PROJECT#" + project + "#ENV#" + env }
 func sk(key string) string          { return "CONFIG#" + key }
-
-func csumOf(v string) string {
-	// This checksum is used only for change detection / idempotency (not for
-	// password storage or authentication).
-	// lgtm [go/weak-sensitive-data-hashing]
-	// lgtm [go/weak-cryptographic-algorithm]
-	h := sha256.Sum256([]byte(v))
-	return fmt.Sprintf("sha256:%x", h)
-}
 
 func (s *DynamoStore) Get(ctx context.Context, project, env, key string) (string, error) {
 	out, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
@@ -113,7 +102,6 @@ func (s *DynamoStore) Set(ctx context.Context, project, env, key, value string) 
 		Value:     value,
 		ItemType:  "config",
 		Version:   currentVersion + 1,
-		Checksum:  csumOf(value),
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 	av, merr := attributevalue.MarshalMap(r)

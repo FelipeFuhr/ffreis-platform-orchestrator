@@ -82,7 +82,7 @@ func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 		return nil
 	}
 
-	result, err := execCtx.Runner().Exec("terraform", []string{
+	_, err = execCtx.Runner().Exec("terraform", []string{
 		"init",
 		"-backend-config=bucket=" + backendBucket,
 		"-backend-config=key=" + backendKey,
@@ -91,9 +91,9 @@ func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 	}, runner.ExecOptions{
 		WorkDir: modulePath,
 		Env:     env,
-	}) // nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
+	})
 	if err != nil {
-		return fmt.Errorf("terraform init: %w — stderr: %s", err, result.Stderr)
+		return fmt.Errorf("terraform init: %w", err)
 	}
 	return nil
 }

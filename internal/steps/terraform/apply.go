@@ -56,11 +56,11 @@ func (s *ApplyStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext)
 		return nil
 	}
 
-	result, err := execCtx.Runner().Exec("terraform", []string{
+	_, err = execCtx.Runner().Exec("terraform", []string{
 		"apply", "-auto-approve", "-input=false", "org.tfplan",
-	}, runner.ExecOptions{WorkDir: modulePath, Env: env}) // nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
+	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 	if err != nil {
-		return fmt.Errorf("terraform apply: %w — stderr: %s", err, result.Stderr)
+		return fmt.Errorf("terraform apply: %w", err)
 	}
 
 	execCtx.SetOutput("applied", "true")
@@ -78,11 +78,11 @@ func (s *ApplyStep) Rollback(ctx context.Context, execCtx *pipeline.ExecutionCon
 		return err
 	}
 
-	result, err := execCtx.Runner().Exec("terraform", []string{
+	_, err = execCtx.Runner().Exec("terraform", []string{
 		"destroy", "-auto-approve", "-input=false",
-	}, runner.ExecOptions{WorkDir: modulePath, Env: env}) // nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
+	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 	if err != nil {
-		return fmt.Errorf("terraform destroy: %w — stderr: %s", err, result.Stderr)
+		return fmt.Errorf("terraform destroy: %w", err)
 	}
 	return nil
 }
