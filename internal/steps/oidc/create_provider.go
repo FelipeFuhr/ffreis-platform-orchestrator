@@ -144,9 +144,9 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 	// This hashes the DER bytes of a *public* X.509 certificate from the TLS
 	// handshake to produce an AWS-compatible thumbprint (a fingerprint), not to
 	// protect secrets (password hashing/signing/MAC/etc).
-	// BEGIN-SONAR-IGNORE-OIDC-THUMBPRINT
+	//BEGIN-SONAR-IGNORE-OIDC-THUMBPRINT
 	// nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
 	fp := sha1.Sum(cert.Raw) // #nosec G401 -- required for AWS OIDC thumbprints // NOSONAR
-	// END-SONAR-IGNORE-OIDC-THUMBPRINT
+	//END-SONAR-IGNORE-OIDC-THUMBPRINT
 	return fmt.Sprintf("%x", fp), nil
 }

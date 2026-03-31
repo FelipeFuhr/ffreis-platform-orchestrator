@@ -85,8 +85,8 @@ jobs:
             echo "-Dsonar.tests=."
             echo "-Dsonar.test.inclusions=**/*_test.go"
             echo "-Dsonar.issue.ignore.block=e1"
-            echo "-Dsonar.issue.ignore.block.e1.beginBlockRegexp=// BEGIN-SONAR-IGNORE-OIDC-THUMBPRINT"
-            echo "-Dsonar.issue.ignore.block.e1.endBlockRegexp=// END-SONAR-IGNORE-OIDC-THUMBPRINT"
+            echo "-Dsonar.issue.ignore.block.e1.beginBlockRegexp=//BEGIN-SONAR-IGNORE-OIDC-THUMBPRINT"
+            echo "-Dsonar.issue.ignore.block.e1.endBlockRegexp=//END-SONAR-IGNORE-OIDC-THUMBPRINT"
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
