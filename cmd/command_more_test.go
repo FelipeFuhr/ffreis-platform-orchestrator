@@ -278,6 +278,7 @@ func TestNewResumeCmd_Run(t *testing.T) {
 
 func TestExecuteAndExitOnError(t *testing.T) {
 	oldArgs := os.Args
+	testBinary := oldArgs[0]
 	os.Args = []string{"platform-orchestrator", "--help"}
 	t.Cleanup(func() { os.Args = oldArgs })
 	if err := Execute(); err != nil {
@@ -288,7 +289,7 @@ func TestExecuteAndExitOnError(t *testing.T) {
 		exitOnError(nil, errors.New("boom"))
 		return
 	}
-	cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=TestExecuteAndExitOnError")
+	cmd := exec.CommandContext(context.Background(), testBinary, "-test.run=TestExecuteAndExitOnError")
 	cmd.Env = append(os.Environ(), "TEST_EXIT_ON_ERROR=1")
 	err := cmd.Run()
 	if err == nil {
