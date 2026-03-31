@@ -144,6 +144,6 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 	// handshake to produce an AWS-compatible thumbprint (a fingerprint), not to
 	// protect secrets (password hashing/signing/MAC/etc).
 	// nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
-	fp := sha1.Sum(cert.Raw) // #nosec G401 — required for OIDC thumbprints
+	fp := sha1.Sum(cert.Raw) // #nosec G401 -- required for AWS OIDC thumbprints // NOSONAR
 	return fmt.Sprintf("%x", fp), nil
 }

@@ -83,17 +83,12 @@ jobs:
 
   snyk:
     # Snyk is intentionally disabled by default in this public template repo.
-    # If `SNYK_TOKEN` is not configured, treat that as disabled and do not fail workflow validation.
+    # Only run this placeholder job when explicitly enabled via repo variable.
     if: ${{ vars.SNYK_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
     steps:
-      - name: Skip when `SNYK_TOKEN` is missing
-        if: ${{ secrets.SNYK_TOKEN == '' }}
-        run: echo "SNYK_TOKEN is not configured; skipping Snyk scan."
-
       - name: Snyk disabled in template repo
-        if: ${{ secrets.SNYK_TOKEN != '' }}
         run: echo "Snyk execution is intentionally disabled in this repository."
