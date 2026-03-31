@@ -96,9 +96,8 @@ func (inv *Invoker) baseArgs(subcommand string) []string {
 // exec runs the binary with args.  The process environment contains only
 // GITHUB_TOKEN (when set) and HOME — no shell environment is forwarded.
 func (inv *Invoker) exec(ctx context.Context, args []string) error {
-	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	// Exec does not invoke a shell. The binary comes from trusted config (not user input) and args are constructed by the orchestrator.
-	cmd := exec.CommandContext(ctx, inv.opts.Binary, args...) // #nosec G204 — binary from config, not user input
+	cmd := exec.CommandContext(ctx, inv.opts.Binary, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — binary from config, not user input
 
 	env := []string{}
 	if home := os.Getenv("HOME"); home != "" {

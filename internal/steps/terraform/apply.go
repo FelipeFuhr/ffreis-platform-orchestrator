@@ -56,12 +56,12 @@ func (s *ApplyStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext)
 		return nil
 	}
 
+	// ExecResult is a value type, never nil; safe to reference in error paths.
+	// nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 	result, err := execCtx.Runner().Exec("terraform", []string{
 		"apply", "-auto-approve", "-input=false", "org.tfplan",
 	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 	if err != nil {
-		// ExecResult is a value type, never nil; safe to reference in error paths.
-		// nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 		return fmt.Errorf("terraform apply: %w — stderr: %s", err, result.Stderr)
 	}
 
@@ -80,12 +80,12 @@ func (s *ApplyStep) Rollback(ctx context.Context, execCtx *pipeline.ExecutionCon
 		return err
 	}
 
+	// ExecResult is a value type, never nil; safe to reference in error paths.
+	// nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 	result, err := execCtx.Runner().Exec("terraform", []string{
 		"destroy", "-auto-approve", "-input=false",
 	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 	if err != nil {
-		// ExecResult is a value type, never nil; safe to reference in error paths.
-		// nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 		return fmt.Errorf("terraform destroy: %w — stderr: %s", err, result.Stderr)
 	}
 	return nil

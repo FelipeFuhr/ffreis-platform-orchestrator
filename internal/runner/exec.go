@@ -17,9 +17,8 @@ func NewExecRunner() *ExecRunner { return &ExecRunner{} }
 // The process environment is built from opts.Env only; the parent shell
 // environment is not inherited.
 func (r *ExecRunner) Exec(command string, args []string, opts ExecOptions) (ExecResult, error) {
-	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	// exec.Command does not invoke a shell; callers must pass args as discrete strings.
-	cmd := exec.Command(command, args...) // #nosec G204 — caller controls args; no shell expansion
+	cmd := exec.Command(command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — caller controls args; no shell expansion
 
 	// Build a clean environment from the provided map.
 	// Shell environment is intentionally not forwarded.
