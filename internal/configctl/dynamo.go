@@ -52,6 +52,7 @@ func csumOf(v string) string {
 	// This checksum is used only for change detection / idempotency (not for
 	// password storage or authentication).
 	// lgtm [go/weak-sensitive-data-hashing]
+	// lgtm [go/weak-cryptographic-algorithm]
 	h := sha256.Sum256([]byte(v))
 	return fmt.Sprintf("sha256:%x", h)
 }
