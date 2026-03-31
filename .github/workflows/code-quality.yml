@@ -96,11 +96,11 @@ jobs:
             -count=1 \
             -timeout=120s
 
-      # ── Scan ────────────────────────────────────────────────────────────────
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
+	      # ── Scan ────────────────────────────────────────────────────────────────
+	      - name: SonarCloud Scan
+	        uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # nosemgrep: generic.secrets.security.detected-sonarqube-docs-api-key (pinned action SHA; not a secret)
+	        env:
+	          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+	          SONAR_HOST_URL: https://sonarcloud.io
         with:
           args: ${{ steps.sonar-args.outputs.args }}

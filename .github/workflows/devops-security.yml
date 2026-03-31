@@ -81,15 +81,16 @@ jobs:
       working-directory: "."
       upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
 
-  snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' }}
-    permissions:
-      contents: read
-      security-events: write
+	  snyk:
+	    # Note: `secrets.*` is not available in job-level `if` for reusable workflow calls.
+	    # Enable this job by setting repo variable SNYK_ENABLED=true and providing secret SNYK_TOKEN.
+	    if: ${{ vars.SNYK_ENABLED == 'true' }}
+	    permissions:
+	      contents: read
+	      security-events: write
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-snyk.yml@main
     with:
       working-directory: "."
       upload-sarif: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
     secrets:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-

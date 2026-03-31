@@ -139,6 +139,6 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 		return "", fmt.Errorf("no TLS peer certificates from %s", rawURL)
 	}
 	cert := resp.TLS.PeerCertificates[len(resp.TLS.PeerCertificates)-1]
-	fp := sha1.Sum(cert.Raw) // #nosec G401 — AWS requires SHA-1 for OIDC thumbprints
+	fp := sha1.Sum(cert.Raw) // #nosec G401 — AWS requires SHA-1 for OIDC thumbprints // nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
 	return fmt.Sprintf("%x", fp), nil
 }

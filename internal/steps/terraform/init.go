@@ -93,6 +93,8 @@ func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 		Env:     env,
 	})
 	if err != nil {
+		// ExecResult is a value type, never nil; safe to reference in error paths.
+		// nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 		return fmt.Errorf("terraform init: %w — stderr: %s", err, result.Stderr)
 	}
 	return nil
