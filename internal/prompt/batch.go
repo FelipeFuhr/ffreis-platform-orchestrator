@@ -11,7 +11,6 @@ import (
 // It reads all values from configctl and fails immediately if any required
 // value is missing. Confirmation gates are auto-confirmed and logged.
 type BatchPrompter struct {
-	ctx     context.Context
 	cfg     configctl.Client
 	project string
 	env     string
@@ -19,16 +18,15 @@ type BatchPrompter struct {
 }
 
 // NewBatchPrompter constructs a non-interactive prompter.
-// ctx is stored and used for all config reads; if nil, context.Background() is used.
-func NewBatchPrompter(ctx context.Context, cfg configctl.Client, project, env string, logf func(string, ...any)) *BatchPrompter {
+func NewBatchPrompter(cfg configctl.Client, project, env string, logf func(string, ...any)) *BatchPrompter {
+	return &BatchPrompter{cfg: cfg, project: project, env: env, logf: logf}
+}
+
+func (b *BatchPrompter) Ask(ctx context.Context, spec InputSpec) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return &BatchPrompter{ctx: ctx, cfg: cfg, project: project, env: env, logf: logf}
-}
-
-func (b *BatchPrompter) Ask(spec InputSpec) (string, error) {
-	val, err := b.cfg.Get(b.ctx, b.project, b.env, spec.Key)
+	val, err := b.cfg.Get(ctx, b.project, b.env, spec.Key)
 	if err != nil {
 		if configctl.IsNotFound(err) && spec.Optional {
 			return spec.Default, nil
@@ -44,12 +42,12 @@ func (b *BatchPrompter) Ask(spec InputSpec) (string, error) {
 	return val, nil
 }
 
-func (b *BatchPrompter) Confirm(message string) (bool, error) {
+func (b *BatchPrompter) Confirm(_ context.Context, message string) (bool, error) {
 	b.logf("non-interactive: auto-confirming: %s", message)
 	return true, nil
 }
 
-func (b *BatchPrompter) Gate(message, keyword string) error {
+func (b *BatchPrompter) Gate(_ context.Context, message, keyword string) error {
 	b.logf("non-interactive: auto-passing gate: %s", message)
 	return nil
 }

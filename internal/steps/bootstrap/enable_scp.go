@@ -35,7 +35,7 @@ func (s *EnableSCP) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *EnableSCP) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
 func (s *EnableSCP) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
-	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	orgClient := newOrganizationsClient(execCtx.AWSConfig())
 	out, err := orgClient.ListRoots(ctx, &organizations.ListRootsInput{})
 	if err != nil {
 		return false, nil
@@ -63,7 +63,7 @@ func (s *EnableSCP) Run(ctx context.Context, execCtx *pipeline.ExecutionContext)
 		return fmt.Errorf("root_ou_id not found: %w", err)
 	}
 
-	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	orgClient := newOrganizationsClient(execCtx.AWSConfig())
 	_, err = orgClient.EnablePolicyType(ctx, &organizations.EnablePolicyTypeInput{
 		RootId:     aws.String(rootOUID),
 		PolicyType: orgtypes.PolicyTypeServiceControlPolicy,
@@ -82,7 +82,7 @@ func (s *EnableSCP) Rollback(ctx context.Context, execCtx *pipeline.ExecutionCon
 	if err != nil {
 		return nil // nothing to roll back
 	}
-	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	orgClient := newOrganizationsClient(execCtx.AWSConfig())
 	_, err = orgClient.DisablePolicyType(ctx, &organizations.DisablePolicyTypeInput{
 		RootId:     aws.String(rootOUID),
 		PolicyType: orgtypes.PolicyTypeServiceControlPolicy,

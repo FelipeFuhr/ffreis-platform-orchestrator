@@ -39,7 +39,14 @@ func (m *memConfig) Delete(_ context.Context, project, env, key string) error {
 	return nil
 }
 func (m *memConfig) List(_ context.Context, project, env string) (map[string]string, error) {
-	return map[string]string{}, nil
+	result := make(map[string]string)
+	prefix := m.key(project, env, "")
+	for key, value := range m.data {
+		if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			result[key[len(prefix):]] = value
+		}
+	}
+	return result, nil
 }
 
 type stubStep struct {

@@ -33,7 +33,7 @@ func (s *CreateOrg) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *CreateOrg) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
 func (s *CreateOrg) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
-	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	orgClient := newOrganizationsClient(execCtx.AWSConfig())
 	out, err := orgClient.DescribeOrganization(ctx, &organizations.DescribeOrganizationInput{})
 	if err != nil {
 		return false, nil
@@ -52,7 +52,7 @@ func (s *CreateOrg) Run(ctx context.Context, execCtx *pipeline.ExecutionContext)
 		return nil
 	}
 
-	orgClient := organizations.NewFromConfig(execCtx.AWSConfig())
+	orgClient := newOrganizationsClient(execCtx.AWSConfig())
 
 	var orgID string
 

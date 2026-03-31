@@ -74,7 +74,7 @@ func (c *Collector) collectOne(ctx context.Context, result *CollectResult, spec 
 
 	spec = applyDefaultFromExisting(spec, existing)
 
-	value, err := c.prompter.Ask(spec)
+	value, err := c.prompter.Ask(ctx, spec)
 	if err != nil {
 		return fmt.Errorf("prompt for %q: %w", spec.Key, err)
 	}

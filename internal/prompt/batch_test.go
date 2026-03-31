@@ -45,9 +45,9 @@ func (m *memConfig) List(_ context.Context, project, env string) (map[string]str
 
 func TestBatchPrompter_Ask_OptionalMissingReturnsDefault(t *testing.T) {
 	cfg := newMemConfig()
-	b := NewBatchPrompter(nil, cfg, "p", "e", func(string, ...any) {})
+	b := NewBatchPrompter(cfg, "p", "e", func(string, ...any) {})
 
-	val, err := b.Ask(InputSpec{
+	val, err := b.Ask(nil, InputSpec{
 		Key:      "k",
 		Optional: true,
 		Default:  "d",
@@ -63,9 +63,9 @@ func TestBatchPrompter_Ask_OptionalMissingReturnsDefault(t *testing.T) {
 
 func TestBatchPrompter_Ask_RequiredMissingErrors(t *testing.T) {
 	cfg := newMemConfig()
-	b := NewBatchPrompter(context.Background(), cfg, "p", "e", func(string, ...any) {})
+	b := NewBatchPrompter(cfg, "p", "e", func(string, ...any) {})
 
-	_, err := b.Ask(InputSpec{Key: "k", Optional: false, Validate: func(string) error { return nil }})
+	_, err := b.Ask(context.Background(), InputSpec{Key: "k", Optional: false, Validate: func(string) error { return nil }})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -77,9 +77,9 @@ func TestBatchPrompter_Ask_RequiredMissingErrors(t *testing.T) {
 func TestBatchPrompter_Ask_VerifyFailureErrors(t *testing.T) {
 	cfg := newMemConfig()
 	_ = cfg.Set(context.Background(), "p", "e", "k", "bad")
-	b := NewBatchPrompter(context.Background(), cfg, "p", "e", func(string, ...any) {})
+	b := NewBatchPrompter(cfg, "p", "e", func(string, ...any) {})
 
-	_, err := b.Ask(InputSpec{
+	_, err := b.Ask(context.Background(), InputSpec{
 		Key:      "k",
 		Validate: func(string) error { return errors.New("nope") },
 	})
@@ -94,18 +94,18 @@ func TestBatchPrompter_Ask_VerifyFailureErrors(t *testing.T) {
 func TestBatchPrompter_ConfirmAndGate(t *testing.T) {
 	cfg := newMemConfig()
 	logged := []string{}
-	b := NewBatchPrompter(context.Background(), cfg, "p", "e", func(f string, a ...any) {
+	b := NewBatchPrompter(cfg, "p", "e", func(f string, a ...any) {
 		logged = append(logged, f)
 	})
 
-	ok, err := b.Confirm("hello")
+	ok, err := b.Confirm(context.Background(), "hello")
 	if err != nil {
 		t.Fatalf("Confirm() err = %v", err)
 	}
 	if !ok {
 		t.Fatal("Confirm() = false, want true")
 	}
-	if err := b.Gate("hello", "YES"); err != nil {
+	if err := b.Gate(context.Background(), "hello", "YES"); err != nil {
 		t.Fatalf("Gate() err = %v", err)
 	}
 	if len(logged) == 0 {

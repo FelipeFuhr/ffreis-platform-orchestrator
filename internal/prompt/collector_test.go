@@ -13,9 +13,11 @@ import (
 // --- in-memory config store ---
 
 type memStore struct {
-	mu   sync.Mutex
-	data map[string]string
-	gets int // count of Get calls
+	mu     sync.Mutex
+	data   map[string]string
+	gets   int // count of Get calls
+	getErr error
+	setErr error
 }
 
 func newMemStore() *memStore {
@@ -28,6 +30,9 @@ func (m *memStore) Get(ctx context.Context, project, env, k string) (string, err
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.gets++
+	if m.getErr != nil {
+		return "", m.getErr
+	}
 	v, ok := m.data[m.key(project, env, k)]
 	if !ok {
 		return "", &configctl.ErrNotFoundError{Key: k}
@@ -38,6 +43,9 @@ func (m *memStore) Get(ctx context.Context, project, env, k string) (string, err
 func (m *memStore) Set(ctx context.Context, project, env, k, value string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.setErr != nil {
+		return m.setErr
+	}
 	m.data[m.key(project, env, k)] = value
 	return nil
 }
@@ -61,7 +69,7 @@ type mockPrompter struct {
 	askErr error
 }
 
-func (p *mockPrompter) Ask(spec prompt.InputSpec) (string, error) {
+func (p *mockPrompter) Ask(_ context.Context, _ prompt.InputSpec) (string, error) {
 	p.asks++
 	if p.askErr != nil {
 		return "", p.askErr
@@ -69,8 +77,8 @@ func (p *mockPrompter) Ask(spec prompt.InputSpec) (string, error) {
 	return p.answer, nil
 }
 
-func (p *mockPrompter) Confirm(message string) (bool, error) { return true, nil }
-func (p *mockPrompter) Gate(message, keyword string) error   { return nil }
+func (p *mockPrompter) Confirm(_ context.Context, _ string) (bool, error) { return true, nil }
+func (p *mockPrompter) Gate(_ context.Context, _, _ string) error         { return nil }
 
 // --- tests ---
 
@@ -195,5 +203,37 @@ func TestCollectInvalidStoredValue(t *testing.T) {
 	}
 	if result.Values["validated/key"] != "good-value" {
 		t.Errorf("expected good-value, got %q", result.Values["validated/key"])
+	}
+}
+
+func TestCollectOptionalEmptyAndConfigErrors(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	pr := &mockPrompter{answer: ""}
+	collector := prompt.NewCollector(store, pr, "proj", "env")
+
+	result, err := collector.Collect(ctx, []prompt.InputSpec{{Key: "optional/key", Optional: true}})
+	if err != nil {
+		t.Fatalf("Collect optional empty: %v", err)
+	}
+	if result.Values["optional/key"] != "" {
+		t.Fatalf("expected empty optional value, got %q", result.Values["optional/key"])
+	}
+
+	store.setErr = fmt.Errorf("set failed")
+	pr.answer = "value"
+	_, err = collector.Collect(ctx, []prompt.InputSpec{{Key: "write/key"}})
+	if err == nil || err.Error() == "" {
+		t.Fatal("expected write error")
+	}
+}
+
+func TestCollectLoadExistingError(t *testing.T) {
+	store := newMemStore()
+	store.getErr = fmt.Errorf("boom")
+	collector := prompt.NewCollector(store, &mockPrompter{answer: "value"}, "proj", "env")
+
+	if _, err := collector.Collect(context.Background(), []prompt.InputSpec{{Key: "k"}}); err == nil {
+		t.Fatal("expected load error")
 	}
 }

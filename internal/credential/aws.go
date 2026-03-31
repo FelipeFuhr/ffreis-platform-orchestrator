@@ -21,6 +21,12 @@ type AWSResolver struct {
 	cfg    configctl.Client
 }
 
+var (
+	loadDefaultAWSConfig  = awscfg.LoadDefaultConfig
+	newSTSClient          = sts.NewFromConfig
+	newAssumeRoleProvider = stscreds.NewAssumeRoleProvider
+)
+
 // NewAWSResolver constructs an AWSResolver.
 func NewAWSResolver(region, runID string, cfg configctl.Client) *AWSResolver {
 	return &AWSResolver{region: region, runID: runID, cfg: cfg}
@@ -35,7 +41,7 @@ func (r *AWSResolver) Resolve(ctx context.Context, class Class) (aws.Config, err
 
 	switch class {
 	case ClassRoot:
-		cfg, err := awscfg.LoadDefaultConfig(ctx, opts...)
+		cfg, err := loadDefaultAWSConfig(ctx, opts...)
 		if err != nil {
 			return aws.Config{}, fmt.Errorf("load root credentials: %w", err)
 		}
@@ -61,16 +67,16 @@ func (r *AWSResolver) Resolve(ctx context.Context, class Class) (aws.Config, err
 }
 
 func (r *AWSResolver) assumeRole(ctx context.Context, roleARN, sessionName string, opts []func(*awscfg.LoadOptions) error) (aws.Config, error) {
-	baseCfg, err := awscfg.LoadDefaultConfig(ctx, opts...)
+	baseCfg, err := loadDefaultAWSConfig(ctx, opts...)
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("load base credentials for role assumption: %w", err)
 	}
-	stsClient := sts.NewFromConfig(baseCfg)
-	provider := stscreds.NewAssumeRoleProvider(stsClient, roleARN, func(o *stscreds.AssumeRoleOptions) {
+	stsClient := newSTSClient(baseCfg)
+	provider := newAssumeRoleProvider(stsClient, roleARN, func(o *stscreds.AssumeRoleOptions) {
 		o.RoleSessionName = sessionName
 		o.Duration = 3600
 	})
-	roleCfg, err := awscfg.LoadDefaultConfig(ctx,
+	roleCfg, err := loadDefaultAWSConfig(ctx,
 		append(opts, awscfg.WithCredentialsProvider(aws.NewCredentialsCache(provider)))...,
 	)
 	if err != nil {

@@ -37,6 +37,17 @@ type globalFlags struct {
 	env            string
 }
 
+var (
+	loadAppConfig   = appconfig.Load
+	newLogger       = logger.New
+	loadAWSConfig   = config.LoadDefaultConfig
+	newDynamoClient = dynamodb.NewFromConfig
+	newConfigStore  = configctl.NewDynamoStore
+	newStateStore   = pipeline.NewStateStore
+	newAWSResolver  = credential.NewAWSResolver
+	newExecRunner   = runner.NewExecRunner
+)
+
 func Execute() error {
 	return buildRoot().Execute()
 }
@@ -75,7 +86,7 @@ func buildRoot() *cobra.Command {
 }
 
 func initDeps(ctx context.Context, gf *globalFlags, d *deps) error {
-	cfg, err := appconfig.Load()
+	cfg, err := loadAppConfig()
 	if err != nil {
 		if gf.table == "" {
 			return err
@@ -95,7 +106,7 @@ func initDeps(ctx context.Context, gf *globalFlags, d *deps) error {
 	cfg.ConfirmAll = gf.confirmAll
 	cfg.DryRun = gf.dryRun
 
-	log, err := logger.New(cfg.LogLevel)
+	log, err := newLogger(cfg.LogLevel)
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
@@ -104,13 +115,13 @@ func initDeps(ctx context.Context, gf *globalFlags, d *deps) error {
 	if cfg.AWSRegion != "" {
 		awsOpts = append(awsOpts, config.WithRegion(cfg.AWSRegion))
 	}
-	awsCfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
+	awsCfg, err := loadAWSConfig(ctx, awsOpts...)
 	if err != nil {
 		return fmt.Errorf("load AWS config: %w", err)
 	}
 
-	dynamo := dynamodb.NewFromConfig(awsCfg)
-	store := configctl.NewDynamoStore(dynamo, cfg.TableName)
+	dynamo := newDynamoClient(awsCfg)
+	store := newConfigStore(dynamo, cfg.TableName)
 
 	d.cfg = cfg
 	d.log = log
@@ -131,9 +142,9 @@ func requireProjectEnv(gf *globalFlags) error {
 }
 
 func buildEngine(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.DAG, runID string) *pipeline.Engine {
-	resolver := credential.NewAWSResolver(d.cfg.AWSRegion, runID, d.cfgctl)
-	state := pipeline.NewStateStore(d.cfgctl)
-	r := runner.NewExecRunner()
+	resolver := newAWSResolver(d.cfg.AWSRegion, runID, d.cfgctl)
+	state := newStateStore(d.cfgctl)
+	r := newExecRunner()
 
 	return pipeline.NewEngine(pipeline.EngineOptions{
 		DAG:      dag,

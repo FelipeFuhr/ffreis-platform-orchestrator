@@ -50,7 +50,7 @@ func (s *CreateAdminRole) IsDone(ctx context.Context, execCtx *pipeline.Executio
 	if err != nil || roleName == "" {
 		roleName = defaultRoleName
 	}
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 	if _, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
 		return false, nil
 	}
@@ -71,7 +71,7 @@ func (s *CreateAdminRole) Run(ctx context.Context, execCtx *pipeline.ExecutionCo
 	}
 
 	// 2. Get account ID via STS.
-	stsClient := sts.NewFromConfig(execCtx.AWSConfig())
+	stsClient := newSTSClient(execCtx.AWSConfig())
 	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return fmt.Errorf("GetCallerIdentity: %w", err)
@@ -87,7 +87,7 @@ func (s *CreateAdminRole) Run(ctx context.Context, execCtx *pipeline.ExecutionCo
   }]
 }`, accountID)
 
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 
 	// 3. Create role; handle EntityAlreadyExistsException as success.
 	var roleARN string
@@ -134,7 +134,7 @@ func (s *CreateAdminRole) Rollback(ctx context.Context, execCtx *pipeline.Execut
 	if roleName == "" {
 		roleName = defaultRoleName
 	}
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 	if _, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
 		RoleName:  aws.String(roleName),
 		PolicyArn: aws.String(adminRolePolicy),

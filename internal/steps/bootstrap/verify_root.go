@@ -29,7 +29,7 @@ func (s *VerifyRootStep) IsDone(ctx context.Context, execCtx *pipeline.Execution
 }
 
 func (s *VerifyRootStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) error {
-	stsClient := sts.NewFromConfig(execCtx.AWSConfig())
+	stsClient := newSTSClient(execCtx.AWSConfig())
 	out, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return fmt.Errorf("GetCallerIdentity failed — check root credentials: %w", err)

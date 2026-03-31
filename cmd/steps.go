@@ -7,8 +7,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-
-	"github.com/ffreis/platform-orchestrator/pipelines"
 )
 
 func newStepsCmd(d *deps, gf *globalFlags) *cobra.Command {
@@ -16,7 +14,7 @@ func newStepsCmd(d *deps, gf *globalFlags) *cobra.Command {
 		Use:   "steps",
 		Short: "List all steps in the platform pipeline",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dag, err := pipelines.PlatformSetupPipeline(d.cfgctl)
+			dag, err := buildPlatformSetupPipeline(d.cfgctl)
 			if err != nil {
 				return fmt.Errorf("build pipeline: %w", err)
 			}

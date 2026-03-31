@@ -36,7 +36,7 @@ func (s *CreateProviderStep) RequiredInputs() []prompt.InputSpec { return nil }
 func (s *CreateProviderStep) RetryPolicy() pipeline.RetryPolicy  { return pipeline.NoRetry }
 
 func (s *CreateProviderStep) IsDone(ctx context.Context, execCtx *pipeline.ExecutionContext) (bool, error) {
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 	listOut, err := iamClient.ListOpenIDConnectProviders(ctx, &iam.ListOpenIDConnectProvidersInput{})
 	if err != nil {
 		return false, nil
@@ -63,7 +63,7 @@ func (s *CreateProviderStep) Run(ctx context.Context, execCtx *pipeline.Executio
 		return nil
 	}
 
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 
 	// Check if provider already exists.
 	listOut, err := iamClient.ListOpenIDConnectProviders(ctx, &iam.ListOpenIDConnectProvidersInput{})
@@ -82,7 +82,7 @@ func (s *CreateProviderStep) Run(ctx context.Context, execCtx *pipeline.Executio
 	}
 
 	// Fetch thumbprint. Use known stable thumbprint as fallback.
-	thumbprint, err := fetchThumbprint(ctx, githubOIDCURL)
+	thumbprint, err := githubThumbprintFn(ctx, githubOIDCURL)
 	if err != nil {
 		// Fallback: use known stable thumbprint (fetched live in production).
 		thumbprint = "6938fd4d98bab03faadb97b34396831e3780aea1"
@@ -114,7 +114,7 @@ func (s *CreateProviderStep) Rollback(ctx context.Context, execCtx *pipeline.Exe
 	if err != nil {
 		return nil // nothing to roll back
 	}
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 	if _, err := iamClient.DeleteOpenIDConnectProvider(ctx, &iam.DeleteOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(arn),
 	}); err != nil {
@@ -129,7 +129,7 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("build request %s: %w", rawURL, err)
 	}
-	resp, err := http.DefaultClient.Do(req) // #nosec G107
+	resp, err := httpDo(req) // #nosec G107
 	if err != nil {
 		return "", fmt.Errorf("GET %s: %w", rawURL, err)
 	}
@@ -139,6 +139,11 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 		return "", fmt.Errorf("no TLS peer certificates from %s", rawURL)
 	}
 	cert := resp.TLS.PeerCertificates[len(resp.TLS.PeerCertificates)-1]
-	fp := sha1.Sum(cert.Raw) // #nosec G401 — AWS requires SHA-1 for OIDC thumbprints // nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
+	// AWS requires SHA-1 for OIDC provider thumbprints.
+	// This hashes the DER bytes of a *public* X.509 certificate from the TLS
+	// handshake to produce an AWS-compatible thumbprint (a fingerprint), not to
+	// protect secrets (password hashing/signing/MAC/etc).
+	// nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
+	fp := sha1.Sum(cert.Raw) // #nosec G401 — required for OIDC thumbprints
 	return fmt.Sprintf("%x", fp), nil
 }

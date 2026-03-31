@@ -7,8 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
-	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 )
 
 func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
@@ -19,7 +17,7 @@ func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
 		Short: "Show the step states for a run",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			state := pipeline.NewStateStore(d.cfgctl)
+			state := newStateStore(d.cfgctl)
 
 			if runID == "" {
 				lastID, err := state.LastRunID(ctx)

@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,13 +14,13 @@ import (
 // Prompter interactively collects a single value from the operator.
 type Prompter interface {
 	// Ask presents the spec to the operator and returns the confirmed value.
-	Ask(spec InputSpec) (string, error)
+	Ask(ctx context.Context, spec InputSpec) (string, error)
 
 	// Confirm presents a yes/no question and returns true if the operator agrees.
-	Confirm(message string) (bool, error)
+	Confirm(ctx context.Context, message string) (bool, error)
 
 	// Gate requires the operator to type a specific keyword to proceed.
-	Gate(message, keyword string) error
+	Gate(ctx context.Context, message, keyword string) error
 }
 
 // InteractivePrompter reads from the terminal using plain stdio.
@@ -39,7 +40,7 @@ func NewInteractivePrompter() *InteractivePrompter {
 	}
 }
 
-func (p *InteractivePrompter) Ask(spec InputSpec) (string, error) {
+func (p *InteractivePrompter) Ask(_ context.Context, spec InputSpec) (string, error) {
 	for {
 		label := promptLabel(spec)
 		p.printPrompt(label, spec.Default)
@@ -104,7 +105,7 @@ func defaultIfEmpty(value, def string) string {
 	return def
 }
 
-func (p *InteractivePrompter) Confirm(message string) (bool, error) {
+func (p *InteractivePrompter) Confirm(_ context.Context, message string) (bool, error) {
 	fmt.Fprintf(p.out, "%s [y/N]: ", message)
 	raw, err := p.in.ReadString('\n')
 	if err != nil {
@@ -114,7 +115,7 @@ func (p *InteractivePrompter) Confirm(message string) (bool, error) {
 	return answer == "y" || answer == "yes", nil
 }
 
-func (p *InteractivePrompter) Gate(message, keyword string) error {
+func (p *InteractivePrompter) Gate(_ context.Context, message, keyword string) error {
 	fmt.Fprintf(p.out, "\n%s\nType %q to confirm: ", message, keyword)
 	raw, err := p.in.ReadString('\n')
 	if err != nil {

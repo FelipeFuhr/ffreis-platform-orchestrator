@@ -25,6 +25,14 @@ type runFlags struct {
 	runnerToken       string
 }
 
+var (
+	buildPlatformSetupPipeline = pipelines.PlatformSetupPipeline
+	newPostrunInvoker          = postrun.New
+	newBatchPrompter           = prompt.NewBatchPrompter
+	newInteractivePrompter     = prompt.NewInteractivePrompter
+	newCollector               = prompt.NewCollector
+)
+
 func newInitCmd(d *deps, gf *globalFlags) *cobra.Command {
 	rf := &runFlags{}
 
@@ -77,7 +85,7 @@ func runInit(cmd *cobra.Command, d *deps, gf *globalFlags, rf *runFlags) error {
 		zap.String("env", gf.env),
 	)
 
-	dag, err := pipelines.PlatformSetupPipeline(d.cfgctl)
+	dag, err := buildPlatformSetupPipeline(d.cfgctl)
 	if err != nil {
 		return fmt.Errorf("build pipeline: %w", err)
 	}
@@ -110,7 +118,7 @@ func invokeRunner(ctx context.Context, d *deps, gf *globalFlags, rf *runFlags) e
 		token = os.Getenv("GITHUB_TOKEN")
 	}
 
-	inv := postrun.New(postrun.Options{
+	inv := newPostrunInvoker(postrun.Options{
 		Binary:      rf.runnerBinary,
 		Config:      rf.runnerConfig,
 		RulesDir:    rf.runnerRulesDir,
@@ -155,14 +163,14 @@ func collectInputs(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.
 
 	var pr prompt.Prompter
 	if d.cfg.NonInteractive {
-		pr = prompt.NewBatchPrompter(ctx, d.cfgctl, gf.project, gf.env, func(f string, a ...any) {
+		pr = newBatchPrompter(d.cfgctl, gf.project, gf.env, func(f string, a ...any) {
 			d.log.Info(fmt.Sprintf(f, a...))
 		})
 	} else {
-		pr = prompt.NewInteractivePrompter()
+		pr = newInteractivePrompter()
 	}
 
-	collector := prompt.NewCollector(d.cfgctl, pr, gf.project, gf.env)
+	collector := newCollector(d.cfgctl, pr, gf.project, gf.env)
 	result, err := collector.Collect(ctx, specs)
 	if err != nil {
 		return err

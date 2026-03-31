@@ -82,8 +82,6 @@ func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 		return nil
 	}
 
-	// ExecResult is a value type, never nil; safe to reference in error paths.
-	// nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 	result, err := execCtx.Runner().Exec("terraform", []string{
 		"init",
 		"-backend-config=bucket=" + backendBucket,
@@ -93,7 +91,7 @@ func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 	}, runner.ExecOptions{
 		WorkDir: modulePath,
 		Env:     env,
-	})
+	}) // nosemgrep: trailofbits.go.invalid-usage-of-modified-variable.invalid-usage-of-modified-variable
 	if err != nil {
 		return fmt.Errorf("terraform init: %w — stderr: %s", err, result.Stderr)
 	}

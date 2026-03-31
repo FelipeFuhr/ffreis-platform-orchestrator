@@ -81,10 +81,10 @@ func TestVerifyRootStep_IsDoneAndRollback(t *testing.T) {
 	execCtx := newExecCtx(cfg, false)
 
 	s := NewVerifyRootStep()
-	if got := s.ID(); got == "" {
+	if s.ID() == "" {
 		t.Fatal("expected non-empty ID")
 	}
-	if got := s.Name(); got == "" {
+	if s.Name() == "" {
 		t.Fatal("expected non-empty Name")
 	}
 

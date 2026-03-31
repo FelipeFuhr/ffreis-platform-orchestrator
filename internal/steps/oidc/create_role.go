@@ -43,7 +43,7 @@ func (s *CreateGitHubRoleStep) IsDone(ctx context.Context, execCtx *pipeline.Exe
 	if err != nil || roleName == "" {
 		roleName = defaultGitHubRoleName
 	}
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 	if _, err := iamClient.GetRole(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
 		return false, nil
 	}
@@ -76,7 +76,7 @@ func (s *CreateGitHubRoleStep) Run(ctx context.Context, execCtx *pipeline.Execut
 	}
 
 	// 2. Get account ID.
-	stsClient := sts.NewFromConfig(execCtx.AWSConfig())
+	stsClient := newSTSClient(execCtx.AWSConfig())
 	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return fmt.Errorf("GetCallerIdentity: %w", err)
@@ -100,7 +100,7 @@ func (s *CreateGitHubRoleStep) Run(ctx context.Context, execCtx *pipeline.Execut
   }]
 }`, providerARN, githubOrg, githubRepo)
 
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 
 	// 4. CreateRole; handle EntityAlreadyExistsException.
 	var roleARN string
@@ -135,7 +135,7 @@ func (s *CreateGitHubRoleStep) Rollback(ctx context.Context, execCtx *pipeline.E
 	if roleName == "" {
 		roleName = defaultGitHubRoleName
 	}
-	iamClient := iam.NewFromConfig(execCtx.AWSConfig())
+	iamClient := newIAMClient(execCtx.AWSConfig())
 	if _, err := iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
 		RoleName: aws.String(roleName),
 	}); err != nil {

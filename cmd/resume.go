@@ -5,9 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
-	"github.com/ffreis/platform-orchestrator/internal/pipeline"
-	"github.com/ffreis/platform-orchestrator/pipelines"
 )
 
 func newResumeCmd(d *deps, gf *globalFlags) *cobra.Command {
@@ -27,7 +24,7 @@ re-running, preserving idempotency.`,
 
 			// Resolve run ID.
 			if runID == "" {
-				state := pipeline.NewStateStore(d.cfgctl)
+				state := newStateStore(d.cfgctl)
 				lastID, err := state.LastRunID(ctx)
 				if err != nil {
 					return fmt.Errorf("no run ID provided and no previous run found: %w", err)
@@ -37,7 +34,7 @@ re-running, preserving idempotency.`,
 
 			d.log.Info("resuming run", zap.String("run_id", runID))
 
-			dag, err := pipelines.PlatformSetupPipeline(d.cfgctl)
+			dag, err := buildPlatformSetupPipeline(d.cfgctl)
 			if err != nil {
 				return fmt.Errorf("build pipeline: %w", err)
 			}
