@@ -66,8 +66,13 @@ func (p *InteractivePrompter) Ask(_ context.Context, spec InputSpec) (string, er
 
 func (p *InteractivePrompter) promptAndRead(spec InputSpec) (string, error) {
 	label := promptLabel(spec)
-	if err := p.printPrompt(label, spec.Default); err != nil {
-		return "", err
+	// For sensitive inputs, readInput prints the label itself alongside the
+	// "input will not be echoed" notice, so we skip printPrompt to avoid
+	// printing the label twice.
+	if !spec.Sensitive {
+		if err := p.printPrompt(label, spec.Default); err != nil {
+			return "", err
+		}
 	}
 	return p.readInput(label, spec.Sensitive)
 }

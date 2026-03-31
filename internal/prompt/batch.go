@@ -23,9 +23,6 @@ func NewBatchPrompter(cfg configctl.Client, project, env string, logf func(strin
 }
 
 func (b *BatchPrompter) Ask(ctx context.Context, spec InputSpec) (string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	val, err := b.cfg.Get(ctx, b.project, b.env, spec.Key)
 	if err != nil {
 		if configctl.IsNotFound(err) && spec.Optional {

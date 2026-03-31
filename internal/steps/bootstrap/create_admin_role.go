@@ -77,6 +77,9 @@ func (s *CreateAdminRole) Run(ctx context.Context, execCtx *pipeline.ExecutionCo
 	if err != nil {
 		return fmt.Errorf("GetCallerIdentity: %w", err)
 	}
+	if identity.Account == nil {
+		return fmt.Errorf("GetCallerIdentity returned nil account ID")
+	}
 	accountID := *identity.Account
 
 	trustPolicy := fmt.Sprintf(`{

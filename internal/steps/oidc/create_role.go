@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/credential"
@@ -75,14 +74,6 @@ func (s *CreateGitHubRoleStep) Run(ctx context.Context, execCtx *pipeline.Execut
 	if roleName == "" {
 		roleName = defaultGitHubRoleName
 	}
-
-	// 2. Get account ID.
-	stsClient := newSTSClient(execCtx.AWSConfig())
-	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		return fmt.Errorf("GetCallerIdentity: %w", err)
-	}
-	_ = identity // not needed directly in trust policy, providerARN is used
 
 	trustPolicy := fmt.Sprintf(`{
   "Version": "2012-10-17",

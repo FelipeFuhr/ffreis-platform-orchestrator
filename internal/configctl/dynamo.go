@@ -68,7 +68,9 @@ func (s *DynamoStore) Get(ctx context.Context, project, env, key string) (string
 }
 
 func (s *DynamoStore) Set(ctx context.Context, project, env, key, value string) error {
-	// Get current record to derive version for optimistic-style update.
+	// Read the existing record to derive the next version and to short-circuit
+	// no-op writes. Version is incremented on each write for audit purposes;
+	// concurrent writes are last-write-wins (no ConditionExpression).
 	var (
 		currentVersion int64
 		existing       record

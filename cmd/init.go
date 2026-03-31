@@ -72,7 +72,6 @@ With --run, platform-runner is invoked after the pipeline completes to:
 	cmd.Flags().StringVar(&rf.runnerToken, "runner-token", "",
 		"GitHub token for platform-runner (falls back to GITHUB_TOKEN env)")
 
-	_ = cmd.MarkPersistentFlagRequired("project")
 	return cmd
 }
 
