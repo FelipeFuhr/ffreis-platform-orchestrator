@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"text/tabwriter"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -26,6 +27,18 @@ import (
 )
 
 type fakeDynamoClient struct{}
+
+type fakeStatusStateStore struct {
+	lastRunID string
+	err       error
+}
+
+func (f fakeStatusStateStore) LastRunID(context.Context) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.lastRunID, nil
+}
 
 func (fakeDynamoClient) GetItem(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
 	return &dynamodb.GetItemOutput{}, nil
@@ -190,6 +203,68 @@ func TestNewStatusCmd_PrintsStoredState(t *testing.T) {
 	})
 	if !strings.Contains(out, "STEP") || !strings.Contains(out, "step-a") {
 		t.Fatalf("unexpected output: %q", out)
+	}
+}
+
+func TestResolveStatusRunID(t *testing.T) {
+	t.Run("uses explicit run id", func(t *testing.T) {
+		got, err := resolveStatusRunID(context.Background(), fakeStatusStateStore{lastRunID: "latest"}, "run-1")
+		if err != nil {
+			t.Fatalf("resolveStatusRunID() error: %v", err)
+		}
+		if got != "run-1" {
+			t.Fatalf("resolveStatusRunID() = %q", got)
+		}
+	})
+
+	t.Run("falls back to last run id", func(t *testing.T) {
+		got, err := resolveStatusRunID(context.Background(), fakeStatusStateStore{lastRunID: "latest"}, "")
+		if err != nil {
+			t.Fatalf("resolveStatusRunID() error: %v", err)
+		}
+		if got != "latest" {
+			t.Fatalf("resolveStatusRunID() = %q", got)
+		}
+	})
+
+	t.Run("returns friendly error", func(t *testing.T) {
+		_, err := resolveStatusRunID(context.Background(), fakeStatusStateStore{err: errors.New("missing")}, "")
+		if err == nil || !strings.Contains(err.Error(), "no run ID provided") {
+			t.Fatalf("resolveStatusRunID() error = %v", err)
+		}
+	})
+}
+
+func TestStatusHelpers(t *testing.T) {
+	if got := formatStatusTime(time.Time{}); got != "-" {
+		t.Fatalf("formatStatusTime(zero) = %q", got)
+	}
+
+	value := time.Date(2026, 3, 31, 12, 30, 45, 0, time.UTC)
+	if got := formatStatusTime(value); got != "2026-03-31T12:30:45" {
+		t.Fatalf("formatStatusTime() = %q", got)
+	}
+
+	var out bytes.Buffer
+	w := tabwriter.NewWriter(&out, 0, 0, 2, ' ', 0)
+	states := map[string]*pipeline.StepState{
+		"step-a": {
+			StepID:     "step-a",
+			Status:     pipeline.StatusSucceeded,
+			Attempts:   2,
+			StartedAt:  value,
+			FinishedAt: value,
+		},
+	}
+	if err := writeStatusTable(w, states); err != nil {
+		t.Fatalf("writeStatusTable() error: %v", err)
+	}
+	if err := w.Flush(); err != nil {
+		t.Fatalf("Flush() error: %v", err)
+	}
+	output := out.String()
+	if !strings.Contains(output, "STEP") || !strings.Contains(output, "step-a") {
+		t.Fatalf("unexpected table output: %q", output)
 	}
 }
 

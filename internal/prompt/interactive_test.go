@@ -13,6 +13,10 @@ type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
 
+type errWriter struct{}
+
+func (errWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
 func TestNewInteractivePrompter(t *testing.T) {
 	p := NewInteractivePrompter()
 	if p == nil || p.in == nil || p.out == nil {
@@ -134,6 +138,53 @@ func TestInteractivePrompterReadInputError(t *testing.T) {
 	_, err := p.readInput("Name", false)
 	if err == nil || !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Fatalf("readInput() error = %v", err)
+	}
+}
+
+func TestInteractivePromptHelpers(t *testing.T) {
+	p := &InteractivePrompter{in: bufio.NewReader(bytes.NewBufferString("value\n")), out: io.Discard}
+
+	got, err := p.promptAndRead(InputSpec{Key: "name"})
+	if err != nil {
+		t.Fatalf("promptAndRead() error: %v", err)
+	}
+	if got != "value" {
+		t.Fatalf("promptAndRead() = %q", got)
+	}
+
+	retry, err := p.validateInput(InputSpec{Key: "name"}, "")
+	if err != nil {
+		t.Fatalf("validateInput() required error: %v", err)
+	}
+	if !retry {
+		t.Fatal("validateInput() expected retry for required empty input")
+	}
+
+	retry, err = p.validateInput(InputSpec{
+		Key: "name",
+		Validate: func(string) error {
+			return errors.New("bad")
+		},
+	}, "invalid")
+	if err != nil {
+		t.Fatalf("validateInput() invalid error: %v", err)
+	}
+	if !retry {
+		t.Fatal("validateInput() expected retry for invalid input")
+	}
+}
+
+func TestInteractivePromptWriteErrors(t *testing.T) {
+	p := &InteractivePrompter{in: bufio.NewReader(bytes.NewBuffer(nil)), out: errWriter{}}
+
+	if err := p.writePrompt("%s", "x"); err == nil || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("writePrompt() error = %v", err)
+	}
+	if err := p.writelnPrompt(); err == nil || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("writelnPrompt() error = %v", err)
+	}
+	if _, err := p.promptAndRead(InputSpec{Key: "name"}); err == nil || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("promptAndRead() error = %v", err)
 	}
 }
 
