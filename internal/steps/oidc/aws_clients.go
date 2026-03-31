@@ -19,13 +19,13 @@ type iamAPI interface {
 	DeleteRole(context.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
 }
 
-type stsAPI interface {
+type callerIdentityGetter interface {
 	GetCallerIdentity(context.Context, *sts.GetCallerIdentityInput, ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 }
 
 var (
 	newIAMClient       = func(cfg aws.Config) iamAPI { return iam.NewFromConfig(cfg) }
-	newSTSClient       = func(cfg aws.Config) stsAPI { return sts.NewFromConfig(cfg) }
+	newSTSClient       = func(cfg aws.Config) callerIdentityGetter { return sts.NewFromConfig(cfg) }
 	httpDo             = func(req *http.Request) (*http.Response, error) { return http.DefaultClient.Do(req) }
 	githubThumbprintFn = fetchThumbprint
 )

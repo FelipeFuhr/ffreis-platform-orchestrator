@@ -72,7 +72,7 @@ func TestEnableSCP_RunMissingRootAndCreateAdminRoleExisting(t *testing.T) {
 	origIAM := newIAMClient
 	origSTS := newSTSClient
 	newIAMClient = func(aws.Config) iamAPI { return iamClient }
-	newSTSClient = func(aws.Config) stsAPI { return stsClient }
+	newSTSClient = func(aws.Config) callerIdentityGetter { return stsClient }
 	t.Cleanup(func() {
 		newIAMClient = origIAM
 		newSTSClient = origSTS

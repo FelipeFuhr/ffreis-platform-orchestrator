@@ -148,17 +148,17 @@ func TestVerifyRoot_RunBranches(t *testing.T) {
 	origSTS := newSTSClient
 	t.Cleanup(func() { newSTSClient = origSTS })
 
-	newSTSClient = func(aws.Config) stsAPI { return &fakeSTSClient{err: errors.New("sts")} }
+	newSTSClient = func(aws.Config) callerIdentityGetter { return &fakeSTSClient{err: errors.New("sts")} }
 	if err := step.Run(context.Background(), execCtx); err == nil {
 		t.Fatal("expected sts error")
 	}
 
-	newSTSClient = func(aws.Config) stsAPI { return &fakeSTSClient{out: &sts.GetCallerIdentityOutput{}} }
+	newSTSClient = func(aws.Config) callerIdentityGetter { return &fakeSTSClient{out: &sts.GetCallerIdentityOutput{}} }
 	if err := step.Run(context.Background(), execCtx); err == nil {
 		t.Fatal("expected missing account error")
 	}
 
-	newSTSClient = func(aws.Config) stsAPI {
+	newSTSClient = func(aws.Config) callerIdentityGetter {
 		return &fakeSTSClient{out: &sts.GetCallerIdentityOutput{Account: aws.String("123")}}
 	}
 	if err := step.Run(context.Background(), execCtx); err != nil {
@@ -181,7 +181,7 @@ func TestCreateAdminRole_RunAndRollback(t *testing.T) {
 	origIAM := newIAMClient
 	origSTS := newSTSClient
 	newIAMClient = func(aws.Config) iamAPI { return iamClient }
-	newSTSClient = func(aws.Config) stsAPI { return stsClient }
+	newSTSClient = func(aws.Config) callerIdentityGetter { return stsClient }
 	t.Cleanup(func() {
 		newIAMClient = origIAM
 		newSTSClient = origSTS
