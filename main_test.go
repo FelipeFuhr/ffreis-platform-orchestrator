@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"testing"
@@ -19,7 +20,7 @@ func TestMainProcess(t *testing.T) {
 	}
 
 	t.Run("success exits zero", func(t *testing.T) {
-		cmd := exec.Command(os.Args[0], "-test.run=TestMainProcess")
+		cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=TestMainProcess")
 		cmd.Env = append(os.Environ(), "RUN_MAIN_TEST=1", "GO_WANT_HELP=1")
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("main() subprocess failed: %v", err)
@@ -27,7 +28,7 @@ func TestMainProcess(t *testing.T) {
 	})
 
 	t.Run("error exits one", func(t *testing.T) {
-		cmd := exec.Command(os.Args[0], "-test.run=TestMainProcess")
+		cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=TestMainProcess")
 		cmd.Env = append(os.Environ(), "RUN_MAIN_TEST=1", "GO_WANT_BAD_FLAG=1")
 		err := cmd.Run()
 		if err == nil {

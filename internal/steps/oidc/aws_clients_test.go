@@ -14,7 +14,7 @@ func TestAWSClientFactoriesAndHTTPHelpers(t *testing.T) {
 	if newSTSClient(aws.Config{}) == nil {
 		t.Fatal("expected sts client")
 	}
-	req, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.com", nil)
 	if err != nil {
 		t.Fatalf("NewRequest(): %v", err)
 	}

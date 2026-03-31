@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/credential"

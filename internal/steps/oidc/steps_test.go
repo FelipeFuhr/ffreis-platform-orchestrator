@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
@@ -117,7 +118,7 @@ func TestFetchThumbprint(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = old })
 
 	http.DefaultTransport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test-only TLS server
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	fp, err := fetchThumbprint(context.Background(), server.URL)

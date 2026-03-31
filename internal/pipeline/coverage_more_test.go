@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/logger"
 )

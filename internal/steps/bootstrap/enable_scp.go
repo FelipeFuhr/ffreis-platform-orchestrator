@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/organizations"
 	orgtypes "github.com/aws/aws-sdk-go-v2/service/organizations/types"
+
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/credential"

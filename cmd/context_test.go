@@ -5,8 +5,10 @@ import (
 	"testing"
 )
 
+type contextKey string
+
 func TestContextFromCmdContext(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "k", "v")
+	ctx := context.WithValue(context.Background(), contextKey("k"), "v")
 	got := contextFromCmdContext(ctx)
 	if got != ctx {
 		t.Fatal("expected same context to be returned")

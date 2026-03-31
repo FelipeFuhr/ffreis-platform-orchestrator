@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 )
 
@@ -85,32 +85,6 @@ func (m *mockDynamoClient) Query(ctx context.Context, params *dynamodb.QueryInpu
 		}
 	}
 	return &dynamodb.QueryOutput{Items: items, Count: int32(len(items))}, nil
-}
-
-// helper to put a raw record directly into the mock.
-func putRaw(t *testing.T, m *mockDynamoClient, project, env, key, value string) {
-	t.Helper()
-	type rec struct {
-		PK       string `dynamodbav:"PK"`
-		SK       string `dynamodbav:"SK"`
-		Value    string `dynamodbav:"value"`
-		ItemType string `dynamodbav:"item_type"`
-	}
-	r := rec{
-		PK:       "PROJECT#" + project + "#ENV#" + env,
-		SK:       "CONFIG#" + key,
-		Value:    value,
-		ItemType: "config",
-	}
-	av, err := attributevalue.MarshalMap(r)
-	if err != nil {
-		t.Fatalf("MarshalMap: %v", err)
-	}
-	pkVal := av["PK"].(*types.AttributeValueMemberS).Value
-	skVal := av["SK"].(*types.AttributeValueMemberS).Value
-	m.mu.Lock()
-	m.items[m.itemKey(pkVal, skVal)] = av
-	m.mu.Unlock()
 }
 
 func newTestStore() (*configctl.DynamoStore, *mockDynamoClient) {

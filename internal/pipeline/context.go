@@ -4,6 +4,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/runner"

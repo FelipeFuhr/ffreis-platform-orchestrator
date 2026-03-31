@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -18,7 +19,8 @@ func NewExecRunner() *ExecRunner { return &ExecRunner{} }
 // environment is not inherited.
 func (r *ExecRunner) Exec(command string, args []string, opts ExecOptions) (ExecResult, error) {
 	// exec.Command does not invoke a shell; callers must pass args as discrete strings.
-	cmd := exec.Command(command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — caller controls args; no shell expansion
+	//nolint:gosec // command execution is the purpose of this adapter; callers pass discrete args and no shell is involved
+	cmd := exec.CommandContext(context.Background(), command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — caller controls args; no shell expansion
 
 	// Build a clean environment from the provided map.
 	// Shell environment is intentionally not forwarded.

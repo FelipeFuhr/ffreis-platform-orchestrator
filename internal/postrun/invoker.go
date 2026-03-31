@@ -51,7 +51,7 @@ func New(opts Options) *Invoker {
 	return &Invoker{opts: opts}
 }
 
-// Validate runs: platform-runner validate [--rules-dir …] [--config …]
+// Validate runs: platform-runner validate [--rules-dir …] [--config …].
 func (inv *Invoker) Validate(ctx context.Context) error {
 	args := inv.baseArgs("validate")
 	if inv.opts.RulesDir != "" {
@@ -60,7 +60,7 @@ func (inv *Invoker) Validate(ctx context.Context) error {
 	return inv.exec(ctx, args)
 }
 
-// SyncTemplate runs: platform-runner sync-template --template-dir … [--dry-run]
+// SyncTemplate runs: platform-runner sync-template --template-dir … [--dry-run].
 func (inv *Invoker) SyncTemplate(ctx context.Context) error {
 	args := inv.baseArgs("sync-template")
 	if inv.opts.TemplateDir != "" {
@@ -97,6 +97,7 @@ func (inv *Invoker) baseArgs(subcommand string) []string {
 // GITHUB_TOKEN (when set) and HOME — no shell environment is forwarded.
 func (inv *Invoker) exec(ctx context.Context, args []string) error {
 	// Exec does not invoke a shell. The binary comes from trusted config (not user input) and args are constructed by the orchestrator.
+	//nolint:gosec // binary path is explicitly configured by the operator; args are constructed locally without shell expansion
 	cmd := exec.CommandContext(ctx, inv.opts.Binary, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — binary from config, not user input
 
 	env := []string{}

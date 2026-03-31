@@ -8,6 +8,7 @@ import (
 	awscfg "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 )

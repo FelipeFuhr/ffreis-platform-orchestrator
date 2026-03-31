@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 
 	"golang.org/x/term"
 )
@@ -43,7 +44,9 @@ func NewInteractivePrompter() *InteractivePrompter {
 func (p *InteractivePrompter) Ask(_ context.Context, spec InputSpec) (string, error) {
 	for {
 		label := promptLabel(spec)
-		p.printPrompt(label, spec.Default)
+		if err := p.printPrompt(label, spec.Default); err != nil {
+			return "", err
+		}
 
 		input, err := p.readInput(label, spec.Sensitive)
 		if err != nil {
@@ -52,12 +55,16 @@ func (p *InteractivePrompter) Ask(_ context.Context, spec InputSpec) (string, er
 		input = defaultIfEmpty(input, spec.Default)
 
 		if input == "" && !spec.Optional {
-			fmt.Fprintf(p.out, "  value is required, please try again\n")
+			if _, err := fmt.Fprintf(p.out, "  value is required, please try again\n"); err != nil {
+				return "", fmt.Errorf("write prompt: %w", err)
+			}
 			continue
 		}
 
 		if err := spec.Verify(input); err != nil {
-			fmt.Fprintf(p.out, "  %v, please try again\n", err)
+			if _, writeErr := fmt.Fprintf(p.out, "  %v, please try again\n", err); writeErr != nil {
+				return "", fmt.Errorf("write prompt: %w", writeErr)
+			}
 			continue
 		}
 
@@ -72,22 +79,27 @@ func promptLabel(spec InputSpec) string {
 	return spec.Key
 }
 
-func (p *InteractivePrompter) printPrompt(label, def string) {
+func (p *InteractivePrompter) printPrompt(label, def string) error {
 	if def != "" {
-		fmt.Fprintf(p.out, "%s [%s]: ", label, def)
-		return
+		_, err := fmt.Fprintf(p.out, "%s [%s]: ", label, def)
+		return err
 	}
-	fmt.Fprintf(p.out, "%s: ", label)
+	_, err := fmt.Fprintf(p.out, "%s: ", label)
+	return err
 }
 
 func (p *InteractivePrompter) readInput(label string, sensitive bool) (string, error) {
 	if sensitive {
-		fmt.Fprintf(p.out, "(input will not be echoed)\n%s: ", label)
-		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if _, err := fmt.Fprintf(p.out, "(input will not be echoed)\n%s: ", label); err != nil {
+			return "", fmt.Errorf("write prompt: %w", err)
+		}
+		raw, err := term.ReadPassword(syscall.Stdin)
 		if err != nil {
 			return "", fmt.Errorf("read password: %w", err)
 		}
-		fmt.Fprintln(p.out) // newline after hidden input
+		if _, err := fmt.Fprintln(p.out); err != nil { // newline after hidden input
+			return "", fmt.Errorf("write prompt: %w", err)
+		}
 		return string(raw), nil
 	}
 
@@ -106,7 +118,9 @@ func defaultIfEmpty(value, def string) string {
 }
 
 func (p *InteractivePrompter) Confirm(_ context.Context, message string) (bool, error) {
-	fmt.Fprintf(p.out, "%s [y/N]: ", message)
+	if _, err := fmt.Fprintf(p.out, "%s [y/N]: ", message); err != nil {
+		return false, fmt.Errorf("write prompt: %w", err)
+	}
 	raw, err := p.in.ReadString('\n')
 	if err != nil {
 		return false, fmt.Errorf(errReadInput, err)
@@ -116,7 +130,9 @@ func (p *InteractivePrompter) Confirm(_ context.Context, message string) (bool, 
 }
 
 func (p *InteractivePrompter) Gate(_ context.Context, message, keyword string) error {
-	fmt.Fprintf(p.out, "\n%s\nType %q to confirm: ", message, keyword)
+	if _, err := fmt.Fprintf(p.out, "\n%s\nType %q to confirm: ", message, keyword); err != nil {
+		return fmt.Errorf("write prompt: %w", err)
+	}
 	raw, err := p.in.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf(errReadInput, err)

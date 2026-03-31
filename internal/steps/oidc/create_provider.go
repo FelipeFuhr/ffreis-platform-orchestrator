@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
@@ -133,7 +134,7 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("GET %s: %w", rawURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.TLS == nil || len(resp.TLS.PeerCertificates) == 0 {
 		return "", fmt.Errorf("no TLS peer certificates from %s", rawURL)
@@ -143,7 +144,9 @@ func fetchThumbprint(ctx context.Context, rawURL string) (string, error) {
 	// This hashes the DER bytes of a *public* X.509 certificate from the TLS
 	// handshake to produce an AWS-compatible thumbprint (a fingerprint), not to
 	// protect secrets (password hashing/signing/MAC/etc).
+	// BEGIN-SONAR-IGNORE-OIDC-THUMBPRINT
 	// nosemgrep: go.lang.security.audit.crypto.use_of_weak_crypto.use-of-sha1
 	fp := sha1.Sum(cert.Raw) // #nosec G401 -- required for AWS OIDC thumbprints // NOSONAR
+	// END-SONAR-IGNORE-OIDC-THUMBPRINT
 	return fmt.Sprintf("%x", fp), nil
 }

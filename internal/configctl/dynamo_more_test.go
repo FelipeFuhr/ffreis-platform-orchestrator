@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 )
 

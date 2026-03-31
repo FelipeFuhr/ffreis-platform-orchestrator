@@ -288,7 +288,7 @@ func TestExecuteAndExitOnError(t *testing.T) {
 		exitOnError(nil, errors.New("boom"))
 		return
 	}
-	cmd := exec.Command(os.Args[0], "-test.run=TestExecuteAndExitOnError")
+	cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=TestExecuteAndExitOnError")
 	cmd.Env = append(os.Environ(), "TEST_EXIT_ON_ERROR=1")
 	err := cmd.Run()
 	if err == nil {

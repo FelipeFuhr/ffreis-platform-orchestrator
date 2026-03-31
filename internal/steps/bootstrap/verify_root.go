@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"

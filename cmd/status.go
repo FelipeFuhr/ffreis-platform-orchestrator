@@ -35,7 +35,9 @@ func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "STEP\tSTATUS\tATTEMPTS\tSTARTED\tFINISHED")
+			if _, err := fmt.Fprintln(w, "STEP\tSTATUS\tATTEMPTS\tSTARTED\tFINISHED"); err != nil {
+				return err
+			}
 			for _, ss := range states {
 				started := "-"
 				if !ss.StartedAt.IsZero() {
@@ -45,8 +47,10 @@ func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
 				if !ss.FinishedAt.IsZero() {
 					finished = ss.FinishedAt.Format("2006-01-02T15:04:05")
 				}
-				fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
-					ss.StepID, ss.Status, ss.Attempts, started, finished)
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
+					ss.StepID, ss.Status, ss.Attempts, started, finished); err != nil {
+					return err
+				}
 			}
 			_ = gf
 			return w.Flush()

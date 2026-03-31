@@ -24,14 +24,18 @@ func newStepsCmd(d *deps, gf *globalFlags) *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ORDER\tID\tNAME\tCREDENTIAL\tDEPS")
+			if _, err := fmt.Fprintln(w, "ORDER\tID\tNAME\tCREDENTIAL\tDEPS"); err != nil {
+				return err
+			}
 			for i, step := range sorted {
 				deps := strings.Join(step.Deps(), ", ")
 				if deps == "" {
 					deps = "-"
 				}
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-					i+1, step.ID(), step.Name(), step.CredentialClass(), deps)
+				if _, err := fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
+					i+1, step.ID(), step.Name(), step.CredentialClass(), deps); err != nil {
+					return err
+				}
 			}
 			_ = gf
 			return w.Flush()

@@ -47,7 +47,7 @@ func TestBatchPrompter_Ask_OptionalMissingReturnsDefault(t *testing.T) {
 	cfg := newMemConfig()
 	b := NewBatchPrompter(cfg, "p", "e", func(string, ...any) {})
 
-	val, err := b.Ask(nil, InputSpec{
+	val, err := b.Ask(context.TODO(), InputSpec{
 		Key:      "k",
 		Optional: true,
 		Default:  "d",
