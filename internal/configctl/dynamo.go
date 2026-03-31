@@ -49,6 +49,9 @@ func pk(project, env string) string { return "PROJECT#" + project + "#ENV#" + en
 func sk(key string) string          { return "CONFIG#" + key }
 
 func csumOf(v string) string {
+	// This checksum is used only for change detection / idempotency (not for
+	// password storage or authentication).
+	// lgtm [go/weak-sensitive-data-hashing]
 	h := sha256.Sum256([]byte(v))
 	return fmt.Sprintf("sha256:%x", h)
 }
