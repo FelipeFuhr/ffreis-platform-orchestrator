@@ -8,10 +8,9 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
-	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 )
 
 const statusTimeFormat = "2006-01-02T15:04:05"
