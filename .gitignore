@@ -1,3 +1,39 @@
+.scannerwork
+
+# Build output
+platform-orchestrator
+dist/
+
+# Go build cache
+vendor/
+*.test
+
+# Secrets and config — never commit these
+.env
+.env.*
+*.tfvars
+*.tfvars.json
+*.tfstate
+*.tfstate.backup
+secrets.*
+*secret*
+*credentials*
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage.out
+coverage.html
+
 # Local .terraform directories
 .terraform/
 

@@ -1,0 +1,177 @@
+name: CI
+
+# Triggers: every PR and every push to main.
+# Job dependency graph:
+#
+#   secret-scan ─┐
+#   fmt ─────────┼─→ lint ─┐
+#                └─→ test ──┴─→ container-test ─→ container-build
+#
+# Any failure blocks all downstream jobs.
+# GHCR push only runs on main of the origin repo (not fork PRs).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.25.8"
+  GOLANGCI_LINT_VERSION: "v2.11.3"
+  IMAGE: ${{ github.event.repository.name }}
+
+jobs:
+
+  # ── 1. Secret scan ─────────────────────────────────────────────────────────
+  # Runs independently — credential leaks block everything else immediately.
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        run: |
+          docker run --rm \
+            -v "${PWD}:/repo" \
+            -w /repo \
+            zricethezav/gitleaks:v8.28.0 \
+            detect \
+            --source=/repo \
+            --config=/repo/.gitleaks.toml \
+            --redact \
+            --report-format=sarif \
+            --report-path=/repo/gitleaks.sarif \
+            --exit-code=1
+
+      - name: Upload SARIF
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks.sarif
+
+  # ── 2. Format ──────────────────────────────────────────────────────────────
+  fmt:
+    name: Format (gofmt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          cache: true
+
+      - name: gofmt (check)
+        run: |
+          gofmt -w .
+          git diff --exit-code
+
+  # ── 3. Vet + Lint ──────────────────────────────────────────────────────────
+  lint:
+    name: Lint (vet + golangci-lint)
+    runs-on: ubuntu-latest
+    needs: [fmt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa
+        with:
+          version: ${{ vars.GOLANGCI_LINT_VERSION || env.GOLANGCI_LINT_VERSION }}
+          args: --timeout=5m
+          working-directory: .
+
+  # ── 4. Test + Coverage + Vulnerability scan ────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [fmt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          cache: true
+
+      - name: go test (coverage)
+        run: |
+          go test ./... \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            -count=1 \
+            -timeout=120s
+
+      - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee
+        with:
+          go-version-input: ${{ vars.GO_VERSION || env.GO_VERSION }}
+          check-latest: true
+          work-dir: .
+          cache: true
+          go-package: ./...
+          repo-checkout: false
+
+  # ── 5. Container test stage ────────────────────────────────────────────────
+  # Builds the 'test' Containerfile stage which re-runs tests inside the same
+  # base image used in production — catches base-image / runtime divergence.
+  container-test:
+    name: Container (test stage)
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test stage
+        run: |
+          docker build \
+            --target test \
+            --tag ${{ env.IMAGE }}:test-${{ github.sha }} \
+            --file Containerfile \
+            .
+
+  # ── 6. Container final image ───────────────────────────────────────────────
+  container-build:
+    name: Container (final + push)
+    runs-on: ubuntu-latest
+    needs: [container-test]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build final image
+        run: |
+          docker build \
+            --target final \
+            --tag ${{ env.IMAGE }}:${{ github.sha }} \
+            --file Containerfile \
+            .
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
