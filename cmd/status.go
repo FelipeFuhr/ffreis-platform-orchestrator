@@ -8,9 +8,10 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+
+	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 )
 
 const statusTimeFormat = "2006-01-02T15:04:05"
@@ -49,11 +50,11 @@ func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
 	return cmd
 }
 
-type statusStateStore interface {
+type lastRunIDGetter interface {
 	LastRunID(ctx context.Context) (string, error)
 }
 
-func resolveStatusRunID(ctx context.Context, state statusStateStore, runID string) (string, error) {
+func resolveStatusRunID(ctx context.Context, state lastRunIDGetter, runID string) (string, error) {
 	if runID != "" {
 		return runID, nil
 	}
