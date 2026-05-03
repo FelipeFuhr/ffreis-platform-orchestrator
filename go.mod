@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.37
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.28.5
-	github.com/aws/aws-sdk-go-v2/service/organizations v1.19.7
+	github.com/aws/aws-sdk-go-v2/service/organizations v1.51.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.27.1
 	github.com/spf13/cobra v1.8.0
 	go.uber.org/zap v1.26.0
