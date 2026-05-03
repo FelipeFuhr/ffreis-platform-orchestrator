@@ -38,7 +38,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload SARIF
         if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks.sarif
 
@@ -67,9 +67,9 @@ jobs:
     name: Format (gofmt)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
           cache: true
@@ -85,9 +85,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [fmt]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
           cache: true
@@ -96,7 +96,7 @@ jobs:
         run: go vet ./...
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20
         with:
           version: ${{ vars.GOLANGCI_LINT_VERSION || env.GOLANGCI_LINT_VERSION }}
           args: --timeout=5m
@@ -108,9 +108,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [fmt]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ vars.GO_VERSION || env.GO_VERSION }}
           cache: true
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build test stage
         run: |
@@ -158,7 +158,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build final image
         run: |
