@@ -18,7 +18,7 @@ type errWriter struct{}
 func (errWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
 func TestNewInteractivePrompter(t *testing.T) {
-	p := NewInteractivePrompter()
+	p := NewInteractivePrompter(nil)
 	if p == nil || p.in == nil || p.out == nil {
 		t.Fatal("expected initialized prompter")
 	}

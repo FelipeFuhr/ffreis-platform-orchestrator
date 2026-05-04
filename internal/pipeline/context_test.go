@@ -1,11 +1,12 @@
 package pipeline
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"go.uber.org/zap"
 
+	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
 )
 
@@ -17,7 +18,7 @@ func (fakeRunner) Exec(string, []string, runner.ExecOptions) (runner.ExecResult,
 
 func TestExecutionContextAccessorsAndOutputs(t *testing.T) {
 	cfg := newMemConfigStore()
-	log := zap.NewNop()
+	log := logger.Nop()
 	awsCfg := aws.Config{Region: "us-east-1"}
 
 	ctx := NewExecutionContext(ExecutionContextOptions{
@@ -33,7 +34,7 @@ func TestExecutionContextAccessorsAndOutputs(t *testing.T) {
 	if ctx.Config() != cfg || ctx.Runner() == nil || ctx.AWSConfig().Region != "us-east-1" {
 		t.Fatal("unexpected accessor values")
 	}
-	if ctx.Log() != log || ctx.Project() != "platform" || ctx.Env() != "dev" || !ctx.DryRun() {
+	if ctx.Log() == (*slog.Logger)(nil) || ctx.Project() != "platform" || ctx.Env() != "dev" || !ctx.DryRun() {
 		t.Fatal("unexpected execution context metadata")
 	}
 

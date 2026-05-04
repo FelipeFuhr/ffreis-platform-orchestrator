@@ -3,16 +3,16 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"math"
 	"time"
-
-	"go.uber.org/zap"
 
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/credential"
-	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
+	"github.com/ffreis/platform-orchestrator/internal/ui"
 )
 
 // Engine executes a pipeline of steps.
@@ -22,23 +22,54 @@ type Engine struct {
 	resolver credential.Resolver
 	cfg      configctl.Client
 	runner   runner.Runner
-	log      logger.Logger
+	log      *slog.Logger
+	ui       *ui.Presenter
 	project  string
 	env      string
 	dryRun   bool
+	reporter progressReporter
+}
+
+type progressReporter interface {
+	Report(kind, label, detail string)
+}
+
+type noopProgressReporter struct{}
+
+func (noopProgressReporter) Report(string, string, string) {}
+
+type stderrProgressReporter struct {
+	ui  *ui.Presenter
+	out io.Writer
+}
+
+func (r stderrProgressReporter) Report(kind, label, detail string) {
+	if r.ui == nil || r.out == nil {
+		return
+	}
+	_, _ = io.WriteString(r.out, r.ui.Status(kind, label, detail)+"\n")
+}
+
+func newProgressReporter(presenter *ui.Presenter, out io.Writer) progressReporter {
+	if presenter == nil || !presenter.Interactive() || out == nil {
+		return noopProgressReporter{}
+	}
+	return stderrProgressReporter{ui: presenter, out: out}
 }
 
 // EngineOptions configures an Engine instance.
 type EngineOptions struct {
-	DAG      *DAG
-	State    *StateStore
-	Resolver credential.Resolver
-	Config   configctl.Client
-	Runner   runner.Runner
-	Log      logger.Logger
-	Project  string
-	Env      string
-	DryRun   bool
+	DAG         *DAG
+	State       *StateStore
+	Resolver    credential.Resolver
+	Config      configctl.Client
+	Runner      runner.Runner
+	Log         *slog.Logger
+	ProgressOut io.Writer
+	UI          *ui.Presenter
+	Project     string
+	Env         string
+	DryRun      bool
 }
 
 // NewEngine constructs an Engine.
@@ -50,9 +81,11 @@ func NewEngine(opts EngineOptions) *Engine {
 		cfg:      opts.Config,
 		runner:   opts.Runner,
 		log:      opts.Log,
+		ui:       opts.UI,
 		project:  opts.Project,
 		env:      opts.Env,
 		dryRun:   opts.DryRun,
+		reporter: newProgressReporter(opts.UI, opts.ProgressOut),
 	}
 }
 
@@ -72,10 +105,10 @@ func (e *Engine) Init(ctx context.Context, runID string) error {
 	err := e.execute(ctx, runID, nil)
 	if err != nil {
 		e.log.Error("pipeline stopped — run 'resume' to continue or 'rollback' to undo",
-			zap.String("run_id", runID), zap.Error(err))
+			"run_id", runID, "error", err)
 		return err
 	}
-	e.log.Info("pipeline complete", zap.String("run_id", runID))
+	e.log.Info("pipeline complete", "run_id", runID)
 	return nil
 }
 
@@ -93,17 +126,17 @@ func (e *Engine) Resume(ctx context.Context, runID string) error {
 			ss.ErrMsg = "run was interrupted (process killed)"
 			if serr := e.state.SaveStepState(ctx, runID, ss); serr != nil {
 				e.log.Warn("could not update interrupted step state",
-					zap.String("step", ss.StepID), zap.Error(serr))
+					"step", ss.StepID, "error", serr)
 			}
 		}
 	}
 	err = e.execute(ctx, runID, existing)
 	if err != nil {
 		e.log.Error("pipeline stopped — run 'resume' to continue or 'rollback' to undo",
-			zap.String("run_id", runID), zap.Error(err))
+			"run_id", runID, "error", err)
 		return err
 	}
-	e.log.Info("pipeline complete", zap.String("run_id", runID))
+	e.log.Info("pipeline complete", "run_id", runID)
 	return nil
 }
 
@@ -133,15 +166,17 @@ func (e *Engine) execute(ctx context.Context, runID string, existing map[string]
 		if err != nil {
 			return err
 		}
+		stepStarted := time.Now()
+		e.progress("running", "STEP", fmt.Sprintf("%s (%s)", step.ID(), step.Name()))
 
 		finalState, runErr := e.runWithRetry(ctx, step, execCtx, runningState)
 		_ = e.state.SaveStepState(ctx, runID, finalState)
 
 		if runErr != nil {
-			return e.handleStepFailure(ctx, runID, step, finalState, runErr)
+			return e.handleStepFailure(ctx, runID, step, finalState, runErr, stepStarted)
 		}
 
-		e.handleStepSuccess(ctx, runID, step, execCtx, finalState)
+		e.handleStepSuccess(ctx, runID, step, execCtx, finalState, stepStarted)
 	}
 
 	// All steps complete.
@@ -166,9 +201,10 @@ func (e *Engine) shouldSkipStep(step Step, existing map[string]*StepState) bool 
 	}
 
 	e.log.Info("skipping completed step",
-		zap.String(logKeyStepID, step.ID()),
-		zap.String("status", string(ss.Status)),
+		logKeyStepID, step.ID(),
+		"status", string(ss.Status),
 	)
+	e.progress("muted", "SKIPPED", fmt.Sprintf("%s already %s", step.ID(), ss.Status))
 	return true
 }
 
@@ -206,7 +242,7 @@ func (e *Engine) shouldSkipBecauseDone(
 	done, err := step.IsDone(ctx, execCtx)
 	if err != nil {
 		e.log.Warn("IsDone check failed, proceeding with execution",
-			zap.String(logKeyStepID, step.ID()), zap.Error(err))
+			logKeyStepID, step.ID(), "error", err)
 	}
 	if !done {
 		return false
@@ -218,7 +254,8 @@ func (e *Engine) shouldSkipBecauseDone(
 		FinishedAt: time.Now().UTC(),
 	}
 	_ = e.state.SaveStepState(ctx, runID, skippedState)
-	e.log.Info("step already done (IsDone=true)", zap.String(logKeyStepID, step.ID()))
+	e.log.Info("step already done (IsDone=true)", logKeyStepID, step.ID())
+	e.progress("muted", "SKIPPED", fmt.Sprintf("%s already satisfied", step.ID()))
 	return true
 }
 
@@ -241,6 +278,7 @@ func (e *Engine) handleStepSuccess(
 	step Step,
 	execCtx *ExecutionContext,
 	finalState *StepState,
+	started time.Time,
 ) {
 	e.persistStepOutputs(ctx, step, execCtx)
 
@@ -249,9 +287,10 @@ func (e *Engine) handleStepSuccess(
 	_ = e.state.SaveStepState(ctx, runID, finalState)
 
 	e.log.Info("step succeeded",
-		zap.String(logKeyStepID, step.ID()),
-		zap.Int("attempts", finalState.Attempts),
+		logKeyStepID, step.ID(),
+		"attempts", finalState.Attempts,
 	)
+	e.progress("ok", "ok", fmt.Sprintf("%s in %s", step.ID(), e.duration(time.Since(started))))
 }
 
 func (e *Engine) persistStepOutputs(ctx context.Context, step Step, execCtx *ExecutionContext) {
@@ -259,9 +298,9 @@ func (e *Engine) persistStepOutputs(ctx context.Context, step Step, execCtx *Exe
 		storageKey := platformcfg.StepOutputKey(step.ID(), key)
 		if err := e.cfg.Set(ctx, e.project, e.env, storageKey, value); err != nil {
 			e.log.Warn("failed to persist step output",
-				zap.String(logKeyStepID, step.ID()),
-				zap.String("key", key),
-				zap.Error(err),
+				logKeyStepID, step.ID(),
+				"key", key,
+				"error", err,
 			)
 		}
 	}
@@ -273,6 +312,7 @@ func (e *Engine) handleStepFailure(
 	step Step,
 	finalState *StepState,
 	runErr error,
+	started time.Time,
 ) error {
 	finalState.Status = StatusFailed
 	finalState.ErrMsg = runErr.Error()
@@ -288,10 +328,11 @@ func (e *Engine) handleStepFailure(
 	_ = e.state.SaveRunMeta(ctx, meta)
 
 	e.log.Error("step failed",
-		zap.String(logKeyStepID, step.ID()),
-		zap.String("error", finalState.ErrMsg),
-		zap.Int("attempts", finalState.Attempts),
+		logKeyStepID, step.ID(),
+		"error", finalState.ErrMsg,
+		"attempts", finalState.Attempts,
 	)
+	e.progress("error", "fail", fmt.Sprintf("%s after %s: %s", step.ID(), e.duration(time.Since(started)), finalState.ErrMsg))
 	return fmt.Errorf("pipeline halted at step %q: %s", step.ID(), finalState.ErrMsg)
 }
 
@@ -312,14 +353,16 @@ func (e *Engine) runWithRetry(ctx context.Context, step Step, execCtx *Execution
 		}
 		state.ErrMsg = lastErr.Error()
 		e.log.Warn("step attempt failed",
-			zap.String(logKeyStepID, step.ID()),
-			zap.Int("attempt", attempt),
-			zap.Int("max_attempts", maxAttempts),
-			zap.Error(lastErr),
+			logKeyStepID, step.ID(),
+			"attempt", attempt,
+			"max_attempts", maxAttempts,
+			"error", lastErr,
 		)
+		e.progress("warn", "RETRY", fmt.Sprintf("%s attempt %d/%d failed: %v", step.ID(), attempt, maxAttempts, lastErr))
 		if attempt < maxAttempts {
 			wait := backoffDuration(policy.Backoff, attempt)
-			e.log.Info("retrying step", zap.String(logKeyStepID, step.ID()), zap.Duration("wait", wait))
+			e.log.Info("retrying step", logKeyStepID, step.ID(), "wait", wait)
+			e.progress("running", "WAIT", fmt.Sprintf("%s retrying in %s", step.ID(), e.duration(wait)))
 			select {
 			case <-ctx.Done():
 				return state, ctx.Err()
@@ -351,4 +394,18 @@ func (e *Engine) stepStateFor(id string, prior map[string]*StepState) *StepState
 		return nil
 	}
 	return prior[id]
+}
+
+func (e *Engine) progress(kind, label, detail string) {
+	if e.reporter == nil {
+		return
+	}
+	e.reporter.Report(kind, label, detail)
+}
+
+func (e *Engine) duration(d time.Duration) string {
+	if e.ui != nil {
+		return e.ui.Duration(d)
+	}
+	return d.Round(100 * time.Millisecond).String()
 }

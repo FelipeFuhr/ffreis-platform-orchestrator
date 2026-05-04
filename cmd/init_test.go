@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -95,7 +96,7 @@ func TestCollectInputs_NonInteractiveReadsFromConfig(t *testing.T) {
 	}
 	gf := &globalFlags{project: "platform", env: "dev"}
 
-	if err := collectInputs(context.Background(), d, gf, dag); err != nil {
+	if err := collectInputs(context.Background(), nil, d, gf, dag); err != nil {
 		t.Fatalf("collectInputs() err = %v", err)
 	}
 }
@@ -108,7 +109,7 @@ func TestBuildEngine_DoesNotPanic(t *testing.T) {
 	}
 	gf := &globalFlags{project: "platform", env: "dev", dryRun: true}
 
-	eng := buildEngine(context.Background(), d, gf, pipeline.NewDAG(), "runid")
+	eng := buildEngine(context.Background(), d, gf, pipeline.NewDAG(), "runid", io.Discard)
 	if eng == nil {
 		t.Fatal("expected non-nil engine")
 	}

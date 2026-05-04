@@ -1,12 +1,11 @@
 package pipeline
 
 import (
-	"go.uber.org/zap"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
-	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
 )
 
@@ -16,7 +15,7 @@ type ExecutionContext struct {
 	cfg    configctl.Client
 	run    runner.Runner
 	awsCfg aws.Config
-	log    logger.Logger
+	log    *slog.Logger
 
 	project string
 	env     string
@@ -30,7 +29,7 @@ type ExecutionContextOptions struct {
 	Config    configctl.Client
 	Runner    runner.Runner
 	AWSConfig aws.Config
-	Log       logger.Logger
+	Log       *slog.Logger
 	Project   string
 	Env       string
 	DryRun    bool
@@ -60,7 +59,7 @@ func (c *ExecutionContext) Runner() runner.Runner { return c.run }
 func (c *ExecutionContext) AWSConfig() aws.Config { return c.awsCfg }
 
 // Log returns the structured logger.
-func (c *ExecutionContext) Log() logger.Logger { return c.log }
+func (c *ExecutionContext) Log() *slog.Logger { return c.log }
 
 // Project returns the target platform project.
 func (c *ExecutionContext) Project() string { return c.project }
@@ -74,7 +73,7 @@ func (c *ExecutionContext) DryRun() bool { return c.dryRun }
 // SetOutput records a step output value in memory and logs the key.
 // Outputs are persisted to configctl by the engine after the step succeeds.
 func (c *ExecutionContext) SetOutput(key, value string) {
-	c.log.Info("step output set", zap.String("key", key))
+	c.log.Info("step output set", "key", key)
 	c.outputs[key] = value
 }
 

@@ -1,8 +1,10 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -10,12 +12,21 @@ import (
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/logger"
+	"github.com/ffreis/platform-orchestrator/internal/ui"
 )
 
 type errResolver struct{ err error }
 
 func (r errResolver) Resolve(context.Context, credential.Class) (aws.Config, error) {
 	return aws.Config{}, r.err
+}
+
+type captureProgressReporter struct {
+	messages []string
+}
+
+func (c *captureProgressReporter) Report(kind, label, detail string) {
+	c.messages = append(c.messages, kind+"|"+label+"|"+detail)
 }
 
 func TestBackoffDuration(t *testing.T) {
@@ -76,5 +87,47 @@ func TestStateStore_ErrorBranches(t *testing.T) {
 	store := NewStateStore(newMemConfigStore())
 	if _, err := store.LoadRunMeta(context.Background(), "missing"); err == nil {
 		t.Fatal("expected missing run meta error")
+	}
+}
+
+func TestNewProgressReporter_UsesPresenterAndWriter(t *testing.T) {
+	t.Parallel()
+
+	presenter, err := ui.New("plain")
+	if err != nil {
+		t.Fatalf("ui.New(): %v", err)
+	}
+
+	var out bytes.Buffer
+	reporter := newProgressReporter(presenter, &out)
+	reporter.Report("warn", "STEP", "creating role")
+
+	if got := out.String(); got != "[step] creating role\n" {
+		t.Fatalf("reporter output = %q", got)
+	}
+}
+
+func TestNewProgressReporter_NoopWithoutInteractiveUI(t *testing.T) {
+	t.Parallel()
+
+	reporter := newProgressReporter(nil, io.Discard)
+	if _, ok := reporter.(noopProgressReporter); !ok {
+		t.Fatalf("expected noopProgressReporter, got %T", reporter)
+	}
+}
+
+func TestEngineProgress_UsesReporter(t *testing.T) {
+	t.Parallel()
+
+	reporter := &captureProgressReporter{}
+	engine := &Engine{reporter: reporter}
+
+	engine.progress("ok", "ok", "step-a in 1s")
+
+	if len(reporter.messages) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(reporter.messages))
+	}
+	if got := reporter.messages[0]; got != "ok|ok|step-a in 1s" {
+		t.Fatalf("unexpected progress message: %q", got)
 	}
 }

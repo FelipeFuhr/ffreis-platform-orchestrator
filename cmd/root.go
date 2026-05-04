@@ -3,14 +3,16 @@ package cmd
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/ffreis/platform-orchestrator/internal/appconfig"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
@@ -18,12 +20,14 @@ import (
 	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
+	"github.com/ffreis/platform-orchestrator/internal/ui"
 )
 
 type deps struct {
 	cfg    *appconfig.Config
-	log    logger.Logger
+	log    *slog.Logger
 	cfgctl configctl.Client
+	ui     *ui.Presenter
 }
 
 type globalFlags struct {
@@ -35,6 +39,7 @@ type globalFlags struct {
 	dryRun         bool
 	project        string
 	env            string
+	ui             string
 }
 
 var (
@@ -48,8 +53,50 @@ var (
 	newExecRunner   = runner.NewExecRunner
 )
 
-func Execute() error {
-	return buildRoot().Execute()
+const (
+	exitOK    = 0
+	exitError = 1
+)
+
+type ExitError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitError) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *ExitError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func Execute() int {
+	return executeCommand(buildRoot(), os.Stderr)
+}
+
+func executeCommand(cmd *cobra.Command, stderr io.Writer) int {
+	if err := cmd.Execute(); err != nil {
+		if message := err.Error(); message != "" {
+			_, _ = io.WriteString(stderr, "error: "+message+"\n")
+		}
+		return exitCodeForError(err)
+	}
+	return exitOK
+}
+
+func exitCodeForError(err error) int {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) && exitErr != nil && exitErr.Code != 0 {
+		return exitErr.Code
+	}
+	return exitError
 }
 
 func buildRoot() *cobra.Command {
@@ -74,12 +121,14 @@ func buildRoot() *cobra.Command {
 	root.PersistentFlags().BoolVar(&gf.dryRun, "dry-run", false, "Describe actions without executing them")
 	root.PersistentFlags().StringVar(&gf.project, "project", "platform", "Target platform project")
 	root.PersistentFlags().StringVar(&gf.env, "env", "", "Target environment (required: dev, staging, prod) — no default to prevent accidental prod targeting")
+	root.PersistentFlags().StringVar(&gf.ui, "ui", "auto", "UI mode: auto, plain, rich")
 
 	root.AddCommand(
 		newInitCmd(d, gf),
 		newResumeCmd(d, gf),
 		newStatusCmd(d, gf),
 		newStepsCmd(d, gf),
+		versionCmd,
 	)
 
 	return root
@@ -106,7 +155,12 @@ func initDeps(ctx context.Context, gf *globalFlags, d *deps) error {
 	cfg.ConfirmAll = gf.confirmAll
 	cfg.DryRun = gf.dryRun
 
-	log, err := newLogger(cfg.LogLevel)
+	presenter, err := ui.New(gf.ui)
+	if err != nil {
+		return fmt.Errorf("init ui: %w", err)
+	}
+
+	log, err := newLogger(cfg.LogLevel, presenter.Interactive())
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
@@ -126,8 +180,9 @@ func initDeps(ctx context.Context, gf *globalFlags, d *deps) error {
 	d.cfg = cfg
 	d.log = log
 	d.cfgctl = store
+	d.ui = presenter
 
-	log.Debug("deps initialised", zap.String("table", cfg.TableName))
+	log.Debug("deps initialised", "table", cfg.TableName)
 	return nil
 }
 
@@ -141,21 +196,23 @@ func requireProjectEnv(gf *globalFlags) error {
 	return nil
 }
 
-func buildEngine(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.DAG, runID string) *pipeline.Engine {
+func buildEngine(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.DAG, runID string, progressOut io.Writer) *pipeline.Engine {
 	resolver := newAWSResolver(d.cfg.AWSRegion, runID, d.cfgctl)
 	state := newStateStore(d.cfgctl)
 	r := newExecRunner()
 
 	return pipeline.NewEngine(pipeline.EngineOptions{
-		DAG:      dag,
-		State:    state,
-		Resolver: resolver,
-		Config:   d.cfgctl,
-		Runner:   r,
-		Log:      d.log,
-		Project:  gf.project,
-		Env:      gf.env,
-		DryRun:   gf.dryRun,
+		DAG:         dag,
+		State:       state,
+		Resolver:    resolver,
+		Config:      d.cfgctl,
+		Runner:      r,
+		Log:         d.log,
+		ProgressOut: progressOut,
+		UI:          d.ui,
+		Project:     gf.project,
+		Env:         gf.env,
+		DryRun:      gf.dryRun,
 	})
 }
 
@@ -181,15 +238,4 @@ func newRunID() string {
 		}
 	}
 	return string(b)
-}
-
-func exitOnError(log logger.Logger, err error) {
-	if err != nil {
-		if log != nil {
-			log.Error("fatal error", zap.Error(err))
-		} else {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		}
-		os.Exit(1)
-	}
 }

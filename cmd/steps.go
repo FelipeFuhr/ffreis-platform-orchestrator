@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 )
 
 func newStepsCmd(d *deps, gf *globalFlags) *cobra.Command {
@@ -14,6 +15,7 @@ func newStepsCmd(d *deps, gf *globalFlags) *cobra.Command {
 		Use:   "steps",
 		Short: "List all steps in the platform pipeline",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := newCommandOutput(cmd, d.ui)
 			dag, err := buildPlatformSetupPipeline(d.cfgctl)
 			if err != nil {
 				return fmt.Errorf("build pipeline: %w", err)
@@ -23,22 +25,27 @@ func newStepsCmd(d *deps, gf *globalFlags) *cobra.Command {
 				return fmt.Errorf("sort pipeline: %w", err)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			if _, err := fmt.Fprintln(w, "ORDER\tID\tNAME\tCREDENTIAL\tDEPS"); err != nil {
-				return err
-			}
-			for i, step := range sorted {
-				deps := strings.Join(step.Deps(), ", ")
-				if deps == "" {
-					deps = "-"
-				}
-				if _, err := fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n",
-					i+1, step.ID(), step.Name(), step.CredentialClass(), deps); err != nil {
-					return err
-				}
-			}
+			out.Header("Platform Orchestrator Steps", strconv.Itoa(len(sorted))+" pipeline step(s)")
 			_ = gf
-			return w.Flush()
+			return writeStepsTable(out, sorted)
 		},
 	}
+}
+
+func writeStepsTable(out *commandOutput, steps []pipeline.Step) error {
+	rows := make([][]string, 0, len(steps))
+	for i, step := range steps {
+		deps := strings.Join(step.Deps(), ", ")
+		if deps == "" {
+			deps = "-"
+		}
+		rows = append(rows, []string{
+			strconv.Itoa(i + 1),
+			step.ID(),
+			step.Name(),
+			step.CredentialClass().String(),
+			deps,
+		})
+	}
+	return out.Table([]string{"ORDER", "ID", "NAME", "CREDENTIAL", "DEPS"}, rows)
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -38,7 +39,18 @@ func TestBuildRoot_HasSubcommandsAndFlags(t *testing.T) {
 	if root.PersistentFlags().Lookup("env") == nil {
 		t.Fatal("expected --env flag")
 	}
+	if root.PersistentFlags().Lookup("ui") == nil {
+		t.Fatal("expected --ui flag")
+	}
 	if root.Commands() == nil || len(root.Commands()) == 0 {
 		t.Fatal("expected subcommands")
+	}
+}
+
+func TestExitCodeForError_Default(t *testing.T) {
+	t.Parallel()
+
+	if got := exitCodeForError(errors.New("boom")); got != exitError {
+		t.Fatalf("exitCodeForError() = %d, want %d", got, exitError)
 	}
 }

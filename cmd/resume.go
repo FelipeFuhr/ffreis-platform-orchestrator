@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
 
 func newResumeCmd(d *deps, gf *globalFlags) *cobra.Command {
@@ -21,6 +20,7 @@ re-running, preserving idempotency.`,
 				return err
 			}
 			ctx := cmd.Context()
+			out := newCommandOutput(cmd, d.ui)
 
 			// Resolve run ID.
 			if runID == "" {
@@ -32,7 +32,8 @@ re-running, preserving idempotency.`,
 				runID = lastID
 			}
 
-			d.log.Info("resuming run", zap.String("run_id", runID))
+			out.Header("Platform Orchestrator Resume", runSummary(runID, gf.project, gf.env))
+			d.log.Info("resuming run", "run_id", runID)
 
 			dag, err := buildPlatformSetupPipeline(d.cfgctl)
 			if err != nil {
@@ -40,11 +41,11 @@ re-running, preserving idempotency.`,
 			}
 
 			// Collection phase: only prompt for values still missing.
-			if err := collectInputs(ctx, d, gf, dag); err != nil {
+			if err := collectInputs(ctx, out, d, gf, dag); err != nil {
 				return fmt.Errorf("input collection: %w", err)
 			}
 
-			eng := buildEngine(ctx, d, gf, dag, runID)
+			eng := buildEngine(ctx, d, gf, dag, runID, cmd.ErrOrStderr())
 			return eng.Resume(ctx, runID)
 		},
 	}

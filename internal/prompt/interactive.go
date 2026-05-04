@@ -10,6 +10,8 @@ import (
 	"syscall"
 
 	"golang.org/x/term"
+
+	platformui "github.com/ffreis/platform-orchestrator/internal/ui"
 )
 
 // Prompter interactively collects a single value from the operator.
@@ -27,8 +29,9 @@ type Prompter interface {
 // InteractivePrompter reads from the terminal using plain stdio.
 // It does not require a TTY library, keeping dependencies minimal.
 type InteractivePrompter struct {
-	in  *bufio.Reader
-	out io.Writer
+	in        *bufio.Reader
+	out       io.Writer
+	presenter *platformui.Presenter
 }
 
 const (
@@ -39,10 +42,11 @@ const (
 )
 
 // NewInteractivePrompter constructs a prompter that reads from os.Stdin.
-func NewInteractivePrompter() *InteractivePrompter {
+func NewInteractivePrompter(presenter *platformui.Presenter) *InteractivePrompter {
 	return &InteractivePrompter{
-		in:  bufio.NewReader(os.Stdin),
-		out: os.Stderr, // prompts to stderr so stdout stays clean for machine output
+		in:        bufio.NewReader(os.Stdin),
+		out:       os.Stderr, // prompts to stderr so stdout stays clean for machine output
+		presenter: presenter,
 	}
 }
 
@@ -117,18 +121,30 @@ func promptLabel(spec InputSpec) string {
 }
 
 func (p *InteractivePrompter) printPrompt(label, def string) error {
+	promptLabel := label
 	if def != "" {
-		if err := p.writePrompt("%s [%s]: ", label, def); err != nil {
+		promptLabel = fmt.Sprintf("%s [%s]", label, def)
+		if p.presenter != nil {
+			promptLabel = p.presenter.Status("info", ">", promptLabel)
+		}
+		if err := p.writePrompt("%s: ", promptLabel); err != nil {
 			return err
 		}
 		return nil
 	}
-	return p.writePrompt("%s: ", label)
+	if p.presenter != nil {
+		promptLabel = p.presenter.Status("info", ">", label)
+	}
+	return p.writePrompt("%s: ", promptLabel)
 }
 
 func (p *InteractivePrompter) readInput(label string, sensitive bool) (string, error) {
 	if sensitive {
-		if err := p.writePrompt("(input will not be echoed)\n%s: ", label); err != nil {
+		sensitivePrompt := "(input will not be echoed)"
+		if p.presenter != nil {
+			sensitivePrompt = p.presenter.Status("warn", "secret", label)
+		}
+		if err := p.writePrompt("%s\n%s: ", sensitivePrompt, label); err != nil {
 			return "", err
 		}
 		raw, err := term.ReadPassword(syscall.Stdin)
@@ -156,6 +172,9 @@ func defaultIfEmpty(value, def string) string {
 }
 
 func (p *InteractivePrompter) Confirm(_ context.Context, message string) (bool, error) {
+	if p.presenter != nil {
+		message = p.presenter.Status("warn", "confirm", message)
+	}
 	if err := p.writePrompt("%s [y/N]: ", message); err != nil {
 		return false, err
 	}
@@ -168,6 +187,9 @@ func (p *InteractivePrompter) Confirm(_ context.Context, message string) (bool, 
 }
 
 func (p *InteractivePrompter) Gate(_ context.Context, message, keyword string) error {
+	if p.presenter != nil {
+		message = p.presenter.Status("warn", "confirm", message)
+	}
 	if err := p.writePrompt("\n%s\nType %q to confirm: ", message, keyword); err != nil {
 		return err
 	}

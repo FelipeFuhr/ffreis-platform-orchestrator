@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"text/tabwriter"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/ffreis/platform-orchestrator/internal/appconfig"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
@@ -99,7 +97,7 @@ func TestInitDeps_SuccessAndFallback(t *testing.T) {
 	loadAppConfig = func() (*appconfig.Config, error) {
 		return &appconfig.Config{TableName: "tbl", AWSRegion: "us-east-1", LogLevel: "info"}, nil
 	}
-	newLogger = func(string) (logger.Logger, error) { return zap.NewNop(), nil }
+	newLogger = func(string, bool) (*slog.Logger, error) { return logger.Nop(), nil }
 	loadAWSConfig = func(context.Context, ...func(*awscfg.LoadOptions) error) (aws.Config, error) {
 		return aws.Config{}, nil
 	}
@@ -145,12 +143,12 @@ func TestInitDeps_Errors(t *testing.T) {
 	loadAppConfig = func() (*appconfig.Config, error) {
 		return &appconfig.Config{TableName: "tbl", LogLevel: "info"}, nil
 	}
-	newLogger = func(string) (logger.Logger, error) { return nil, errors.New("log") }
+	newLogger = func(string, bool) (*slog.Logger, error) { return nil, errors.New("log") }
 	if err := initDeps(context.Background(), &globalFlags{}, &deps{}); err == nil || !strings.Contains(err.Error(), "init logger: log") {
 		t.Fatalf("unexpected logger error: %v", err)
 	}
 
-	newLogger = func(string) (logger.Logger, error) { return zap.NewNop(), nil }
+	newLogger = func(string, bool) (*slog.Logger, error) { return logger.Nop(), nil }
 	loadAWSConfig = func(context.Context, ...func(*awscfg.LoadOptions) error) (aws.Config, error) {
 		return aws.Config{}, errors.New("aws")
 	}
@@ -195,7 +193,7 @@ func TestNewStatusCmd_PrintsStoredState(t *testing.T) {
 	}
 
 	out := captureOutput(t, func() {
-		cmd := newStatusCmd(&deps{cfgctl: cfg, log: zap.NewNop()}, &globalFlags{})
+		cmd := newStatusCmd(&deps{cfgctl: cfg, log: logger.Nop()}, &globalFlags{})
 		cmd.SetContext(context.Background())
 		if err := cmd.RunE(cmd, nil); err != nil {
 			t.Fatalf("RunE() error: %v", err)
@@ -246,7 +244,6 @@ func TestStatusHelpers(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	w := tabwriter.NewWriter(&out, 0, 0, 2, ' ', 0)
 	states := map[string]*pipeline.StepState{
 		"step-a": {
 			StepID:     "step-a",
@@ -256,11 +253,8 @@ func TestStatusHelpers(t *testing.T) {
 			FinishedAt: value,
 		},
 	}
-	if err := writeStatusTable(w, states); err != nil {
+	if err := writeStatusTable(&commandOutput{out: &out}, states, nil); err != nil {
 		t.Fatalf("writeStatusTable() error: %v", err)
-	}
-	if err := w.Flush(); err != nil {
-		t.Fatalf("Flush() error: %v", err)
 	}
 	output := out.String()
 	if !strings.Contains(output, "STEP") || !strings.Contains(output, "step-a") {
@@ -279,7 +273,7 @@ func TestRunInit_SuccessAndRunnerFailure(t *testing.T) {
 
 	d := &deps{
 		cfg:    &appconfig.Config{NonInteractive: true, AWSRegion: "us-east-1"},
-		log:    zap.NewNop(),
+		log:    logger.Nop(),
 		cfgctl: newMemConfig(),
 	}
 	gf := &globalFlags{project: "platform", env: "dev"}
@@ -313,7 +307,7 @@ func TestCollectInputs_InteractiveAndError(t *testing.T) {
 
 	dag := pipeline.NewDAG()
 	_ = dag.Add(&stubStep{id: "step-a"})
-	d := &deps{cfg: &appconfig.Config{NonInteractive: false}, cfgctl: newMemConfig(), log: zap.NewNop()}
+	d := &deps{cfg: &appconfig.Config{NonInteractive: false}, cfgctl: newMemConfig(), log: logger.Nop()}
 	gf := &globalFlags{project: "platform", env: "dev"}
 
 	var gotCollectorProject, gotCollectorEnv string
@@ -322,7 +316,7 @@ func TestCollectInputs_InteractiveAndError(t *testing.T) {
 		gotCollectorProject, gotCollectorEnv = project, env
 		return prompt.NewCollector(client, pr, project, env)
 	}
-	if err := collectInputs(context.Background(), d, gf, dag); err != nil {
+	if err := collectInputs(context.Background(), nil, d, gf, dag); err != nil {
 		t.Fatalf("collectInputs() error: %v", err)
 	}
 	if gotCollectorProject != "platform" || gotCollectorEnv != "dev" {
@@ -342,7 +336,7 @@ func TestNewResumeCmd_Run(t *testing.T) {
 		t.Fatalf("SaveRunMeta(): %v", err)
 	}
 
-	d := &deps{cfg: &appconfig.Config{AWSRegion: "us-east-1", NonInteractive: true}, cfgctl: cfg, log: zap.NewNop()}
+	d := &deps{cfg: &appconfig.Config{AWSRegion: "us-east-1", NonInteractive: true}, cfgctl: cfg, log: logger.Nop()}
 	gf := &globalFlags{project: "platform", env: "dev"}
 	cmd := newResumeCmd(d, gf)
 	cmd.SetContext(context.Background())
@@ -353,22 +347,28 @@ func TestNewResumeCmd_Run(t *testing.T) {
 
 func TestExecuteAndExitOnError(t *testing.T) {
 	oldArgs := os.Args
-	testBinary := oldArgs[0]
 	os.Args = []string{"platform-orchestrator", "--help"}
 	t.Cleanup(func() { os.Args = oldArgs })
-	if err := Execute(); err != nil {
-		t.Fatalf("Execute() error: %v", err)
+	if code := Execute(); code != exitOK {
+		t.Fatalf("Execute() code = %d, want %d", code, exitOK)
+	}
+}
+
+func TestExecuteCommand_ReturnsExitCodeAndErrorText(t *testing.T) {
+	t.Parallel()
+
+	command := &cobra.Command{
+		RunE: func(*cobra.Command, []string) error {
+			return &ExitError{Code: 7, Err: errors.New("boom")}
+		},
 	}
 
-	if os.Getenv("TEST_EXIT_ON_ERROR") == "1" {
-		exitOnError(nil, errors.New("boom"))
-		return
+	var stderr bytes.Buffer
+	code := executeCommand(command, &stderr)
+	if code != 7 {
+		t.Fatalf("executeCommand() code = %d, want 7", code)
 	}
-	cmd := exec.CommandContext(context.Background(), testBinary, "-test.run=TestExecuteAndExitOnError")
-	cmd.Env = append(os.Environ(), "TEST_EXIT_ON_ERROR=1")
-	err := cmd.Run()
-	if err == nil {
-		t.Fatal("expected subprocess exit error")
+	if got := stderr.String(); got != "error: boom\n" {
+		t.Fatalf("executeCommand() stderr = %q", got)
 	}
-	exitOnError(zap.NewNop(), nil)
 }
