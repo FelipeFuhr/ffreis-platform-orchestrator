@@ -1,7 +1,7 @@
 .scannerwork
 
 # Build output
-platform-orchestrator
+bin/
 dist/
 
 # Go build cache
