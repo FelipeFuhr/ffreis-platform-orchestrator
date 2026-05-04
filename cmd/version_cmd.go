@@ -11,7 +11,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print build information",
 	// Override parent's PersistentPreRunE so that 'version' does not
 	// attempt to load app config, AWS config, or DynamoDB on startup.
-	PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return nil },
 	Run: func(cmd *cobra.Command, _ []string) {
 		out := newCommandOutput(cmd, nil)
 

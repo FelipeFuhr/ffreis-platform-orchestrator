@@ -78,6 +78,7 @@ func (o *commandOutput) Table(headers []string, rows [][]string) error {
 }
 
 // ansiEscapeRe matches ANSI SGR escape sequences (e.g. \x1b[32;1m).
+// Compiled once at package level for performance.
 var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // escapeANSIForTabwriter wraps ANSI escape sequences in tabwriter.Escape
