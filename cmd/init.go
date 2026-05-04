@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 	"github.com/ffreis/platform-orchestrator/internal/postrun"
@@ -78,10 +77,12 @@ With --run, platform-runner is invoked after the pipeline completes to:
 func runInit(cmd *cobra.Command, d *deps, gf *globalFlags, rf *runFlags) error {
 	ctx := cmd.Context()
 	runID := newRunID()
+	out := newCommandOutput(cmd, d.ui)
+	out.Header("Platform Orchestrator Init", runSummary(runID, gf.project, gf.env))
 	d.log.Info("starting new run",
-		zap.String("run_id", runID),
-		zap.String("project", gf.project),
-		zap.String("env", gf.env),
+		"run_id", runID,
+		"project", gf.project,
+		"env", gf.env,
 	)
 
 	dag, err := buildPlatformSetupPipeline(d.cfgctl)
@@ -90,19 +91,19 @@ func runInit(cmd *cobra.Command, d *deps, gf *globalFlags, rf *runFlags) error {
 	}
 
 	// Collection phase.
-	if err := collectInputs(ctx, d, gf, dag); err != nil {
+	if err := collectInputs(ctx, out, d, gf, dag); err != nil {
 		return fmt.Errorf("input collection: %w", err)
 	}
 
 	// Execute pipeline.
-	eng := buildEngine(ctx, d, gf, dag, runID)
+	eng := buildEngine(ctx, d, gf, dag, runID, cmd.ErrOrStderr())
 	if err := eng.Init(ctx, runID); err != nil {
 		return err
 	}
 
 	// Post-pipeline: invoke platform-runner if --run is set.
 	if rf.run {
-		if err := invokeRunner(ctx, d, gf, rf); err != nil {
+		if err := invokeRunner(ctx, out, d, gf, rf); err != nil {
 			return fmt.Errorf("platform-runner: %w", err)
 		}
 	}
@@ -111,7 +112,7 @@ func runInit(cmd *cobra.Command, d *deps, gf *globalFlags, rf *runFlags) error {
 
 // invokeRunner calls platform-runner subcommands in sequence via subprocess.
 // There is no package-level coupling to platform-runner.
-func invokeRunner(ctx context.Context, d *deps, gf *globalFlags, rf *runFlags) error {
+func invokeRunner(ctx context.Context, out *commandOutput, d *deps, gf *globalFlags, rf *runFlags) error {
 	token := rf.runnerToken
 	if token == "" {
 		token = os.Getenv("GITHUB_TOKEN")
@@ -137,20 +138,29 @@ func invokeRunner(ctx context.Context, d *deps, gf *globalFlags, rf *runFlags) e
 	}
 
 	for _, step := range steps {
-		d.log.Info("invoking platform-runner", zap.String("subcommand", step.name))
+		if d.ui != nil && d.ui.Interactive() {
+			out.StatusErr("running", "...", viaBinary(step.name, rf.runnerBinary))
+		}
+		d.log.Info("invoking platform-runner", "subcommand", step.name)
 		if err := step.fn(ctx); err != nil {
 			d.log.Error("platform-runner step failed",
-				zap.String("subcommand", step.name),
-				zap.Error(err),
+				"subcommand", step.name,
+				"error", err,
 			)
+			if d.ui != nil && d.ui.Interactive() {
+				out.StatusErr("error", "fail", failureDetail(step.name, err))
+			}
 			return fmt.Errorf("step %q: %w", step.name, err)
 		}
-		d.log.Info("platform-runner step complete", zap.String("subcommand", step.name))
+		d.log.Info("platform-runner step complete", "subcommand", step.name)
+		if d.ui != nil && d.ui.Interactive() {
+			out.StatusErr("ok", "ok", step.name)
+		}
 	}
 	return nil
 }
 
-func collectInputs(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.DAG) error {
+func collectInputs(ctx context.Context, out *commandOutput, d *deps, gf *globalFlags, dag *pipeline.DAG) error {
 	sorted, err := dag.TopoSort()
 	if err != nil {
 		return err
@@ -163,10 +173,10 @@ func collectInputs(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.
 	var pr prompt.Prompter
 	if d.cfg.NonInteractive {
 		pr = newBatchPrompter(d.cfgctl, gf.project, gf.env, func(f string, a ...any) {
-			d.log.Info(fmt.Sprintf(f, a...))
+			d.log.Info("input collection", "message", fmt.Sprintf(f, a...))
 		})
 	} else {
-		pr = newInteractivePrompter()
+		pr = newInteractivePrompter(d.ui)
 	}
 
 	collector := newCollector(d.cfgctl, pr, gf.project, gf.env)
@@ -175,8 +185,11 @@ func collectInputs(ctx context.Context, d *deps, gf *globalFlags, dag *pipeline.
 		return err
 	}
 	d.log.Info("inputs collected",
-		zap.Int("collected", len(result.Collected)),
-		zap.Int("skipped", len(result.Skipped)),
+		"collected", len(result.Collected),
+		"skipped", len(result.Skipped),
 	)
+	if out != nil && d.ui != nil {
+		out.Summary("Inputs", countPart("collected", len(result.Collected)), countPart("skipped", len(result.Skipped)))
+	}
 	return nil
 }

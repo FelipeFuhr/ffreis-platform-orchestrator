@@ -3,15 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
-	"text/tabwriter"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
+	"github.com/ffreis/platform-orchestrator/internal/ui"
 )
 
 const statusTimeFormat = "2006-01-02T15:04:05"
@@ -24,6 +23,7 @@ func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
 		Short: "Show the step states for a run",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			out := newCommandOutput(cmd, d.ui)
 			state := newStateStore(d.cfgctl)
 
 			resolvedRunID, err := resolveStatusRunID(ctx, state, runID)
@@ -31,19 +31,23 @@ func newStatusCmd(d *deps, gf *globalFlags) *cobra.Command {
 				return err
 			}
 
-			d.log.Info("loading status", zap.String("run_id", resolvedRunID))
+			d.log.Info("loading status", "run_id", resolvedRunID)
 
 			states, err := state.LoadAllStepStates(ctx, resolvedRunID)
 			if err != nil {
 				return fmt.Errorf("load step states: %w", err)
 			}
 
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			if err := writeStatusTable(w, states); err != nil {
+			out.Header("Platform Orchestrator Status", "run "+resolvedRunID)
+			if d.ui != nil {
+				out.Summary("Steps", countPart("count", len(states)))
+			}
+
+			if err := writeStatusTable(out, states, d.ui); err != nil {
 				return err
 			}
 			_ = gf
-			return w.Flush()
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&runID, "run-id", "", "Run ID (defaults to last run)")
@@ -66,24 +70,25 @@ func resolveStatusRunID(ctx context.Context, state lastRunIDGetter, runID string
 	return lastID, nil
 }
 
-func writeStatusTable(w *tabwriter.Writer, states map[string]*pipeline.StepState) error {
-	if _, err := fmt.Fprintln(w, "STEP\tSTATUS\tATTEMPTS\tSTARTED\tFINISHED"); err != nil {
-		return err
-	}
+func writeStatusTable(out *commandOutput, states map[string]*pipeline.StepState, presenter *ui.Presenter) error {
 	keys := make([]string, 0, len(states))
 	for stepID := range states {
 		keys = append(keys, stepID)
 	}
 	sort.Strings(keys)
 
+	rows := make([][]string, 0, len(keys))
 	for _, stepID := range keys {
 		ss := states[stepID]
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
-			ss.StepID, ss.Status, ss.Attempts, formatStatusTime(ss.StartedAt), formatStatusTime(ss.FinishedAt)); err != nil {
-			return err
-		}
+		rows = append(rows, []string{
+			ss.StepID,
+			stepStatusBadge(presenter, ss.Status),
+			strconv.Itoa(ss.Attempts),
+			formatStatusTime(ss.StartedAt),
+			formatStatusTime(ss.FinishedAt),
+		})
 	}
-	return nil
+	return out.Table([]string{"STEP", "STATUS", "ATTEMPTS", "STARTED", "FINISHED"}, rows)
 }
 
 func formatStatusTime(value time.Time) string {
