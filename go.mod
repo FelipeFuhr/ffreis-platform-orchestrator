@@ -1,6 +1,6 @@
 module github.com/ffreis/platform-orchestrator
 
-go 1.25
+go 1.25.0
 
 toolchain go1.25.8
 
@@ -15,7 +15,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.10
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/spf13/cobra v1.8.0
-	golang.org/x/term v0.28.0
+	golang.org/x/term v0.42.0
 )
 
 require (
@@ -39,5 +39,5 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 )
