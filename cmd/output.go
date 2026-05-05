@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -64,12 +65,29 @@ func (o *commandOutput) StatusErr(kind, label, detail string) {
 }
 
 func (o *commandOutput) Table(headers []string, rows [][]string) error {
-	w := tabwriter.NewWriter(o.out, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(o.out, 0, 0, 2, ' ', tabwriter.StripEscape)
 	_, _ = io.WriteString(w, strings.Join(headers, "\t")+"\n")
 	for _, row := range rows {
-		_, _ = io.WriteString(w, strings.Join(row, "\t")+"\n")
+		escaped := make([]string, len(row))
+		for i, cell := range row {
+			escaped[i] = escapeANSIForTabwriter(cell)
+		}
+		_, _ = io.WriteString(w, strings.Join(escaped, "\t")+"\n")
 	}
 	return w.Flush()
+}
+
+// ansiEscapeRe matches ANSI SGR escape sequences (e.g. \x1b[32;1m).
+// Compiled once at package level for performance.
+var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// escapeANSIForTabwriter wraps ANSI escape sequences in tabwriter.Escape
+// markers so that tabwriter excludes their bytes from column-width calculations
+// while still passing the sequences through to the output unchanged.
+func escapeANSIForTabwriter(s string) string {
+	return ansiEscapeRe.ReplaceAllStringFunc(s, func(match string) string {
+		return string(tabwriter.Escape) + match + string(tabwriter.Escape)
+	})
 }
 
 func countPart(label string, value int) string {
