@@ -19,10 +19,18 @@ RUN go mod download
 
 COPY . .
 
+# Build-time version metadata injected via --build-arg.
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_TIME=unknown
+
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build \
       -trimpath \
-      -ldflags="-w -s" \
+      -ldflags="-w -s \
+        -X github.com/ffreis/platform-orchestrator/cmd.version=${VERSION} \
+        -X github.com/ffreis/platform-orchestrator/cmd.commit=${COMMIT} \
+        -X github.com/ffreis/platform-orchestrator/cmd.buildTime=${BUILD_TIME}" \
       -o /bin/platform-orchestrator \
       ./cmd/platform-orchestrator
 

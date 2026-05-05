@@ -3,7 +3,13 @@ MODULE           := github.com/ffreis/platform-orchestrator
 BUILD_DIR        := bin
 CMD_PKG          := ./cmd/$(BINARY)
 GOFLAGS          := -trimpath
-LDFLAGS          := -w -s
+VERSION          := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT           := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_TIME       := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS          := -w -s \
+  -X $(MODULE)/cmd.version=$(VERSION) \
+  -X $(MODULE)/cmd.commit=$(COMMIT) \
+  -X $(MODULE)/cmd.buildTime=$(BUILD_TIME)
 
 # Container engine: prefers podman, falls back to docker.
 CONTAINER_ENGINE := $(shell ./scripts/run which 2>/dev/null || command -v podman 2>/dev/null || command -v docker 2>/dev/null)
@@ -131,6 +137,9 @@ container-build:
 	  --target final \
 	  --tag $(IMAGE_NAME):$(IMAGE_TAG) \
 	  --file Containerfile \
+	  --build-arg VERSION=$(VERSION) \
+	  --build-arg COMMIT=$(COMMIT) \
+	  --build-arg BUILD_TIME=$(BUILD_TIME) \
 	  .
 
 ## container-test: build the test stage and run all tests inside the container
