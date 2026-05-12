@@ -73,3 +73,6 @@ override.tf.json
 terraform.rc
 .bin/
 platform-orchestrator
+
+scripts/hooks/
+scripts/bootstrap_lefthook.sh
