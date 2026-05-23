@@ -1,5 +1,7 @@
 package runner
 
+import "context"
+
 // Runner executes external processes without shell expansion.
 // All implementations must pass arguments as discrete strings, never
 // through shell interpolation, to prevent injection.
@@ -7,7 +9,12 @@ type Runner interface {
 	// Exec runs command with args in workdir, injecting env into the process
 	// environment (on top of an empty base — not inherited from the shell).
 	// stdout and stderr are returned as strings on completion.
-	Exec(command string, args []string, opts ExecOptions) (ExecResult, error)
+	//
+	// The ctx parameter is wired into exec.CommandContext so that SIGINT /
+	// SIGTERM at the parent process kills the child immediately. Long-running
+	// subprocesses (terraform plan/apply) MUST receive a cancellable context;
+	// passing context.Background here re-introduces the orphan-process bug.
+	Exec(ctx context.Context, command string, args []string, opts ExecOptions) (ExecResult, error)
 }
 
 // ExecOptions configures a single execution.

@@ -57,7 +57,7 @@ func (s *PlanStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 		return nil
 	}
 
-	result, err := execCtx.Runner().Exec("terraform", []string{
+	result, err := execCtx.Runner().Exec(ctx, "terraform", []string{
 		"plan", "-out=org.tfplan", "-detailed-exitcode", "-input=false",
 	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 
