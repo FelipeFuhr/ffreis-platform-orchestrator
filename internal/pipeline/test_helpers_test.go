@@ -95,7 +95,7 @@ func (r *classTrackingResolver) Resolve(_ context.Context, class credential.Clas
 
 type mockRunner struct{}
 
-func (r *mockRunner) Exec(_ string, _ []string, _ runner.ExecOptions) (runner.ExecResult, error) {
+func (r *mockRunner) Exec(_ context.Context, _ string, _ []string, _ runner.ExecOptions) (runner.ExecResult, error) {
 	return runner.ExecResult{}, nil
 }
 

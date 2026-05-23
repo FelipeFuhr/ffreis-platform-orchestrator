@@ -82,7 +82,7 @@ func (s *InitStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext) 
 		return nil
 	}
 
-	_, err = execCtx.Runner().Exec("terraform", []string{
+	_, err = execCtx.Runner().Exec(ctx, "terraform", []string{
 		"init",
 		"-backend-config=bucket=" + backendBucket,
 		"-backend-config=key=" + backendKey,

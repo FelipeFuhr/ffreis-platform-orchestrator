@@ -24,10 +24,13 @@ var safeBaselineEnv = []string{"HOME", "PATH", "TMPDIR"}
 // The subprocess environment is seeded with a safe baseline (HOME, PATH,
 // TMPDIR) and then overlaid with opts.Env; no other parent env vars are
 // forwarded to prevent credential leakage.
-func (r *ExecRunner) Exec(command string, args []string, opts ExecOptions) (ExecResult, error) {
+//
+// The subprocess is bound to ctx via exec.CommandContext so cancellation
+// from a signal-handling parent kills the child as well.
+func (r *ExecRunner) Exec(ctx context.Context, command string, args []string, opts ExecOptions) (ExecResult, error) {
 	// exec.Command does not invoke a shell; callers must pass args as discrete strings.
 	//nolint:gosec // command execution is the purpose of this adapter; callers pass discrete args and no shell is involved
-	cmd := exec.CommandContext(context.Background(), command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — caller controls args; no shell expansion
+	cmd := exec.CommandContext(ctx, command, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command #nosec G204 — caller controls args; no shell expansion
 
 	// Seed with a safe baseline so tools like Terraform can locate plugin
 	// caches, temp directories, and binaries in PATH.

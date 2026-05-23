@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -39,7 +40,7 @@ func TestHelperProcess(t *testing.T) {
 
 func TestExecRunner_Success(t *testing.T) {
 	r := NewExecRunner()
-	res, err := r.Exec(os.Args[0], []string{"-test.run=TestHelperProcess", "--", "ok"}, ExecOptions{
+	res, err := r.Exec(context.Background(), os.Args[0], []string{"-test.run=TestHelperProcess", "--", "ok"}, ExecOptions{
 		Env: map[string]string{
 			"GO_WANT_HELPER_PROCESS": "1",
 		},
@@ -60,7 +61,7 @@ func TestExecRunner_Success(t *testing.T) {
 
 func TestExecRunner_NonZeroExitIsError(t *testing.T) {
 	r := NewExecRunner()
-	res, err := r.Exec(os.Args[0], []string{"-test.run=TestHelperProcess", "--", "exit2"}, ExecOptions{
+	res, err := r.Exec(context.Background(), os.Args[0], []string{"-test.run=TestHelperProcess", "--", "exit2"}, ExecOptions{
 		Env: map[string]string{
 			"GO_WANT_HELPER_PROCESS": "1",
 		},

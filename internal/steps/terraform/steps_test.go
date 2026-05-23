@@ -60,7 +60,7 @@ type recordingRunner struct {
 	err    error
 }
 
-func (r *recordingRunner) Exec(cmd string, args []string, opts runner.ExecOptions) (runner.ExecResult, error) {
+func (r *recordingRunner) Exec(_ context.Context, cmd string, args []string, opts runner.ExecOptions) (runner.ExecResult, error) {
 	r.lastCmd = cmd
 	r.lastArgs = append([]string(nil), args...)
 	r.lastOpts = opts

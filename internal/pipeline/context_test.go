@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 
 type fakeRunner struct{}
 
-func (fakeRunner) Exec(string, []string, runner.ExecOptions) (runner.ExecResult, error) {
+func (fakeRunner) Exec(context.Context, string, []string, runner.ExecOptions) (runner.ExecResult, error) {
 	return runner.ExecResult{}, nil
 }
 
