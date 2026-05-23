@@ -128,7 +128,7 @@ jobs:
             -count=1 \
             -timeout=120s
 
-      - uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee
+      - uses: golang/govulncheck-action@31f7c5463448f83528bd771c2d978d940080c9fd
         with:
           go-version-input: ${{ vars.GO_VERSION || env.GO_VERSION }}
           check-latest: true
