@@ -55,7 +55,7 @@ func (o *commandOutput) Summary(title string, parts ...string) {
 }
 
 func (o *commandOutput) StatusErr(kind, label, detail string) {
-	message := detail
+	var message string
 	if o.presenter != nil {
 		message = o.presenter.Status(kind, label, detail)
 	} else {
