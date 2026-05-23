@@ -56,7 +56,7 @@ func (s *ApplyStep) Run(ctx context.Context, execCtx *pipeline.ExecutionContext)
 		return nil
 	}
 
-	_, err = execCtx.Runner().Exec("terraform", []string{
+	_, err = execCtx.Runner().Exec(ctx, "terraform", []string{
 		"apply", "-auto-approve", "-input=false", "org.tfplan",
 	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *ApplyStep) Rollback(ctx context.Context, execCtx *pipeline.ExecutionCon
 		return err
 	}
 
-	_, err = execCtx.Runner().Exec("terraform", []string{
+	_, err = execCtx.Runner().Exec(ctx, "terraform", []string{
 		"destroy", "-auto-approve", "-input=false",
 	}, runner.ExecOptions{WorkDir: modulePath, Env: env})
 	if err != nil {

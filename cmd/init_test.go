@@ -72,7 +72,7 @@ func (s *stubStep) Rollback(context.Context, *pipeline.ExecutionContext) error {
 
 type nopRunner struct{}
 
-func (n *nopRunner) Exec(string, []string, runner.ExecOptions) (runner.ExecResult, error) {
+func (n *nopRunner) Exec(context.Context, string, []string, runner.ExecOptions) (runner.ExecResult, error) {
 	return runner.ExecResult{}, nil
 }
 

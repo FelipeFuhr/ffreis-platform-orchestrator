@@ -364,7 +364,7 @@ func TestExecuteCommand_ReturnsExitCodeAndErrorText(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	code := executeCommand(command, &stderr)
+	code := executeCommand(context.Background(), command, &stderr)
 	if code != 7 {
 		t.Fatalf("executeCommand() code = %d, want 7", code)
 	}

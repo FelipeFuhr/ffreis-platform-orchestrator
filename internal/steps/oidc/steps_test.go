@@ -44,7 +44,7 @@ func (m *memConfig) List(_ context.Context, project, env string) (map[string]str
 
 type nopRunner struct{}
 
-func (n *nopRunner) Exec(_ string, _ []string, _ runner.ExecOptions) (runner.ExecResult, error) {
+func (n *nopRunner) Exec(_ context.Context, _ string, _ []string, _ runner.ExecOptions) (runner.ExecResult, error) {
 	return runner.ExecResult{}, nil
 }
 

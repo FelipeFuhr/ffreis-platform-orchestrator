@@ -78,11 +78,18 @@ func (e *ExitError) Unwrap() error {
 }
 
 func Execute() int {
-	return executeCommand(buildRoot(), os.Stderr)
+	return ExecuteContext(context.Background())
 }
 
-func executeCommand(cmd *cobra.Command, stderr io.Writer) int {
-	if err := cmd.Execute(); err != nil {
+// ExecuteContext runs the CLI with the supplied context, so a signal-aware
+// caller (main) can cancel the entire command tree on SIGINT/SIGTERM. Cobra
+// propagates the context to subcommands via cmd.Context().
+func ExecuteContext(ctx context.Context) int {
+	return executeCommand(ctx, buildRoot(), os.Stderr)
+}
+
+func executeCommand(ctx context.Context, cmd *cobra.Command, stderr io.Writer) int {
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		if message := err.Error(); message != "" {
 			_, _ = io.WriteString(stderr, "error: "+message+"\n")
 		}
