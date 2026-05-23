@@ -71,3 +71,8 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+.bin/
+platform-orchestrator
+
+scripts/hooks/
+scripts/bootstrap_lefthook.sh
