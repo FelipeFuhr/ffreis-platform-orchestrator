@@ -36,7 +36,9 @@ type progressReporter interface {
 
 type noopProgressReporter struct{}
 
-func (noopProgressReporter) Report(string, string, string) {}
+func (noopProgressReporter) Report(string, string, string) {
+	// Intentionally empty: noop implementation discards all progress reports.
+}
 
 type stderrProgressReporter struct {
 	ui  *ui.Presenter
