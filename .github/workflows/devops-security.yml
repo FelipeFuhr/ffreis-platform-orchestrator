@@ -2,10 +2,11 @@ name: DevOps / Security
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main, master]
   schedule:
-    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+    - cron: "29 0 17 * *"  # monthly scattered (was: 0 6 * * 1)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,23 +34,30 @@ jobs:
               - '!**/*.md'
               - '!docs/**'
 
-  gitleaks:
+  security-fs:
+    needs: changes
+    if: |
+      always() && (
+        needs.changes.result == 'skipped' ||
+        needs.changes.outputs.code == 'true'
+      )
     permissions:
       contents: read
       actions: read
       security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-gitleaks.yml@d9792d01b442d7f2d3d2c6855cb312d885594e0f # v1.2.1
+    # Consolidated fs-security bundle: Trivy(fs) + Grype(fs) + gitleaks in ONE job
+    # (was 3 separate jobs). upload-sarif off: GHAS/code-scanning not enabled.
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-security-fs.yml@caa797cc7baec52e99f21b86f532a4b7c88cf4fa # fix/grype-install-outside-scan-path
     with:
       working-directory: "."
       scan-history: true
       upload-sarif: false
-
   codeql:
     permissions:
       actions: read
       contents: read
       security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-codeql.yml@d9792d01b442d7f2d3d2c6855cb312d885594e0f # v1.2.1
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-codeql.yml@caa797cc7baec52e99f21b86f532a4b7c88cf4fa # fix/grype-install-outside-scan-path
     with:
       languages: "go"
       source-root: "."
@@ -69,38 +77,6 @@ jobs:
     uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@d9b0146bb491bf06a79c9c6289034537522cbed3
     with:
       working-directory: "."
-      upload-sarif: false
-
-  trivy-fs:
-    needs: changes
-    if: |
-      always() && (
-        needs.changes.result == 'skipped' ||
-        needs.changes.outputs.code == 'true'
-      )
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-scan-trivy-fs.yml@d9792d01b442d7f2d3d2c6855cb312d885594e0f # v1.2.1
-    with:
-      scan-ref: "."
-      upload-sarif: false
-
-  grype-fs:
-    needs: changes
-    if: |
-      always() && (
-        needs.changes.result == 'skipped' ||
-        needs.changes.outputs.code == 'true'
-      )
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-scan-grype-fs.yml@d9792d01b442d7f2d3d2c6855cb312d885594e0f # v1.2.1
-    with:
-      path: "."
       upload-sarif: false
 
   osv:
@@ -124,6 +100,7 @@ jobs:
     # Only run this placeholder job when explicitly enabled via repo variable.
     if: ${{ vars.SNYK_ENABLED == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write

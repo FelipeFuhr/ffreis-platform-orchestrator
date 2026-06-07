@@ -2,7 +2,7 @@ name: Fuzz Testing
 
 on:
   schedule:
-    - cron: "0 2 1 * *"   # Mondays 03:00 UTC
+    - cron: "26 19 7 * *"  # monthly scattered (was: 0 2 1 * *)
   workflow_dispatch:
     inputs:
       fuzz-time:
