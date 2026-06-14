@@ -72,7 +72,11 @@ jobs:
 
           repo_name="${GITHUB_REPOSITORY#*/}"
           owner_lower="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          file_key="$([ -f sonar-project.properties ] && sed -n 's/^sonar\.projectKey=//p' sonar-project.properties | head -1 || true)"
+          # scan-fix(actionlint:SC2015): rewrite as if-else — A && B || C is not if-then-else
+          file_key=""
+          if [ -f sonar-project.properties ]; then
+            file_key="$(sed -n 's/^sonar\.projectKey=//p' sonar-project.properties | head -1)"
+          fi
           project_key="${SONAR_PROJECT_KEY:-${file_key:-${owner_lower}_${repo_name}}}"
 
           base_ref="${BASE_REF:-main}"
