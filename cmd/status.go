@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
-	"github.com/ffreis/platform-orchestrator/internal/ui"
+	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 const statusTimeFormat = "2006-01-02T15:04:05"

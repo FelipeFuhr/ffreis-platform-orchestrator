@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/term"
 
-	platformui "github.com/ffreis/platform-orchestrator/internal/ui"
+	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 // Prompter interactively collects a single value from the operator.

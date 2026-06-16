@@ -12,7 +12,7 @@ import (
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/logger"
-	"github.com/ffreis/platform-orchestrator/internal/ui"
+	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type errResolver struct{ err error }

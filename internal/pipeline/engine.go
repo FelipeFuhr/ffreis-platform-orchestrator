@@ -12,7 +12,7 @@ import (
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
-	"github.com/ffreis/platform-orchestrator/internal/ui"
+	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 // Engine executes a pipeline of steps.
