@@ -20,7 +20,7 @@ import (
 	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
-	"github.com/ffreis/platform-orchestrator/internal/ui"
+	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type deps struct {
