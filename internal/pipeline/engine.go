@@ -8,11 +8,12 @@ import (
 	"math"
 	"time"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
+
 	platformcfg "github.com/ffreis/platform-orchestrator/internal/config"
 	"github.com/ffreis/platform-orchestrator/internal/configctl"
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 // Engine executes a pipeline of steps.
