@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/ffreis/platform-orchestrator/internal/credential"
 	"github.com/ffreis/platform-orchestrator/internal/logger"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type errResolver struct{ err error }

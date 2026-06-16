@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/spf13/cobra"
@@ -20,7 +21,6 @@ import (
 	"github.com/ffreis/platform-orchestrator/internal/logger"
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
 	"github.com/ffreis/platform-orchestrator/internal/runner"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type deps struct {

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 	"github.com/spf13/cobra"
 
 	"github.com/ffreis/platform-orchestrator/internal/pipeline"
-	"github.com/ffreis/platform-cli/pkg/ui"
 )
 
 type commandOutput struct {

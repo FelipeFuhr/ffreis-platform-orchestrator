@@ -9,9 +9,8 @@ import (
 	"strings"
 	"syscall"
 
+	platformui "github.com/FelipeFuhr/ffreis-platform-cli/pkg/ui"
 	"golang.org/x/term"
-
-	platformui "github.com/ffreis/platform-cli/pkg/ui"
 )
 
 // Prompter interactively collects a single value from the operator.
