@@ -2,7 +2,7 @@ module github.com/ffreis/platform-orchestrator
 
 go 1.25.8
 
-toolchain go1.25.11
+toolchain go1.25.12
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
@@ -28,7 +28,7 @@ require (
 )
 
 require (
-	github.com/FelipeFuhr/ffreis-platform-cli v0.2.0
+	github.com/FelipeFuhr/ffreis-platform-cli v0.3.2
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.22 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.23 // indirect
