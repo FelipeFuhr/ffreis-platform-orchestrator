@@ -17,7 +17,7 @@ jobs:
   mutation:
     permissions:
       contents: read
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-mutation.yml@d9b0146bb491bf06a79c9c6289034537522cbed3
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-mutation.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
     with:
       packages: "./internal/pipeline/... ./internal/steps/..."
       threshold: 60
