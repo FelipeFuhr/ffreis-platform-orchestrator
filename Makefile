@@ -21,11 +21,13 @@ LEFTHOOK_VERSION ?= 1.7.10
 
 MUTATION_PACKAGES ?= ./internal/pipeline/... ./internal/steps/...
 MUTATION_THRESHOLD ?= 60
+COVERAGE_MIN     ?= 75
 LEFTHOOK_DIR     ?= $(CURDIR)/.bin
 LEFTHOOK_BIN     ?= $(LEFTHOOK_DIR)/lefthook
 
-.PHONY: all build install test test-short vet lint tidy clean check fmt fmt-check sec ci \
-        validate plan mutation-test fuzz fuzz-extended help \
+.PHONY: all build build-all install test test-short vet lint tidy clean check fmt fmt-check sec ci \
+        validate plan mutation fuzz fuzz-extended help \
+        coverage-gate integration-coverage-gate quality-gates \
         container-build container-test container-run container-push \
         secrets-scan-staged lefthook-bootstrap lefthook-install lefthook-run lefthook
 
@@ -37,6 +39,8 @@ all: build
 build:
 	@mkdir -p $(BUILD_DIR)
 	go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) $(CMD_PKG)
+
+build-all: build ## Alias required by the lefthook release tier
 
 ## install: install the binary to GOPATH/bin
 install:
@@ -82,8 +86,19 @@ fmt-check:
 sec:
 	govulncheck ./...
 
-## ci: local equivalent of CI gate (fmt-check + vet + lint + test + sec)
-ci: fmt-check vet lint test sec
+## coverage-gate: run tests with coverage and fail if below COVERAGE_MIN
+coverage-gate:
+	@COVERAGE_MIN="$(COVERAGE_MIN)" ./scripts/hooks/check_coverage_gate.sh
+
+## integration-coverage-gate: run //go:build integration tests with coverage and fail if below COVERAGE_MIN (no-op if no integration-tagged files exist)
+integration-coverage-gate:
+	@COVERAGE_MIN="$(COVERAGE_MIN)" ./scripts/hooks/check_integration_coverage_gate.sh
+
+## quality-gates: strict pre-promotion gate (test + coverage-gate) — required by the shared lefthook `complex` tier
+quality-gates: test coverage-gate
+
+## ci: local equivalent of CI gate (fmt-check + vet + lint + test + coverage-gate + sec)
+ci: fmt-check vet lint test coverage-gate sec
 
 ## fmt: format all Go files in place
 fmt:
@@ -105,8 +120,9 @@ secrets-scan-staged:
 	@command -v $(GITLEAKS) >/dev/null 2>&1 || (echo "Missing tool: $(GITLEAKS). Install: https://github.com/gitleaks/gitleaks#installing" && exit 1)
 	$(GITLEAKS) protect --staged --redact
 
-## 
-PLATFORM_STANDARDS_SHA := 3c787edb4e96ddea2e86b2add2c32139685e8db7  # v1.2.1
+##
+# v1.10.0
+PLATFORM_STANDARDS_SHA := 273842219190739c6b462c21331b234271446b13
 PLATFORM_STANDARDS_RAW := https://raw.githubusercontent.com/FelipeFuhr/ffreis-platform-standards
 
 HOOK_SCRIPTS := \
@@ -185,8 +201,8 @@ container-shell:
 	  --entrypoint /bin/sh \
 	  $(IMAGE_NAME):test
 
-## mutation-test: run mutation testing with gremlins (slow — intended for CI/weekly)
-mutation-test: ## Run mutation testing with gremlins (slow — CI only)
+## mutation: run mutation testing with gremlins (slow — intended for CI/weekly)
+mutation: ## Run mutation testing with gremlins (slow — CI only)
 	@which gremlins >/dev/null 2>&1 || go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 	gremlins unleash --threshold-efficacy $(MUTATION_THRESHOLD) $(MUTATION_PACKAGES)
 

@@ -65,7 +65,7 @@ jobs:
   govulncheck:
     permissions:
       contents: read
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-security.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-security.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
       go-version: ${{ vars.GO_VERSION || '1.25' }}
       working-directory: "."
@@ -75,7 +75,7 @@ jobs:
       contents: read
       actions: read # scan-fix(permissions-mirror): go-semgrep-sarif.yml needs this
       security-events: write
-    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@2253ff2eda0a3d65f9eaca1a3ae117d32a449e20 # v1.2.0
+    uses: FelipeFuhr/ffreis-workflows-go/.github/workflows/go-semgrep-sarif.yml@86fd6e3b73fbe6d4f83280ef2661605d441a20e3 # v1.4.0
     with:
       working-directory: "."
       upload-sarif: false
