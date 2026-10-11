@@ -1,8 +1,13 @@
 module github.com/ffreis/platform-orchestrator
 
-go 1.25.8
+go 1.26.0
 
-toolchain go1.25.13
+// scan-fix(govulncheck:GO-2026-6218,GO-2026-6090,GO-2026-6088,GO-2026-5972,GO-2026-5026,
+// GO-2026-6617,GO-2026-6613,GO-2026-6612,GO-2026-6611,GO-2026-6610,GO-2026-6608,
+// GO-2026-6607,GO-2026-6605,GO-2026-6603):
+// 14 reachable stdlib CVEs (net/url, crypto/tls, encoding/xml, encoding/asn1,
+// net/http, net/textproto) across go1.25.8..go1.25.12; all fixed in go1.26.9.
+toolchain go1.26.9
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
